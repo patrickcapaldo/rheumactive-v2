@@ -1,6 +1,6 @@
 # RheumActive v2
 
-This repository contains the source code for the RheumActive v2 application, a real-time joint mobility measurement tool.
+This is the second version of RheumActive, this time taking a computer vision-based approach to helping people with rheumatoid arthritis monitor and improve their mobility.
 
 ## Features
 
@@ -19,8 +19,7 @@ This repository contains the source code for the RheumActive v2 application, a r
   - TensorFlow.js
   - Posenet
 - **Data Storage:**
-  - LocalStorage
-
+  - Local
 
 ### Running the Application
 
