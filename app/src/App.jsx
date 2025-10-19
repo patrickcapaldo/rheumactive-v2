@@ -1,63 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import * as tf from '@tensorflow/tfjs';
 import * as posedetection from '@tensorflow-models/posenet';
 import { Scan, History, Save, Trash, ChevronsLeft, ChevronsRight, PlusCircle } from 'lucide-react';
 
-// --- DO NOT EDIT THESE GLOBAL VARIABLES ---
-const __app_id = "rheumactive-v2";
-const __firebase_config = JSON.stringify({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-});
-const __initial_auth_token = "YOUR_INITIAL_AUTH_TOKEN";
-// ---
-
-// --- Firebase Initialization ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 // --- Main App Component ---
 const App = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user);
-        setLoading(false);
-      } else {
-        signInWithCustomToken(auth, __initial_auth_token)
-          .catch((error) => {
-            console.error("Error signing in with custom token:", error);
-            setLoading(false);
-          });
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
   return (
     <Router>
       <div className="bg-gray-900 text-white min-h-screen">
         <Routes>
           <Route path="/" element={<NavigationView />} />
-          <Route path="/measure" element={<MeasurementView user={user} />} />
-          <Route path="/history" element={<HistoryView user={user} />} />
+          <Route path="/measure" element={<MeasurementView />} />
+          <Route path="/history" element={<HistoryView />} />
         </Routes>
       </div>
     </Router>
@@ -66,20 +22,23 @@ const App = () => {
 
 // --- Views ---
 const NavigationView = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen">
-    <h1 className="text-5xl font-bold mb-8">RheumActive</h1>
-    <div className="space-y-4">
-      <Link to="/measure" className="flex items-center justify-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-4 px-8 rounded-lg text-2xl">
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="text-center">
+      <h1 className="text-6xl font-bold text-white mb-4">RheumActive</h1>
+      <p className="text-xl text-gray-400 mb-12">Your personal joint mobility measurement tool.</p>
+    </div>
+    <div className="space-y-6">
+      <Link to="/measure" className="flex items-center justify-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-4 px-12 rounded-full text-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
         <Scan className="mr-4" /> Measure Mobility
       </Link>
-      <Link to="/history" className="flex items-center justify-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-4 px-8 rounded-lg text-2xl">
+      <Link to="/history" className="flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-12 rounded-full text-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
         <History className="mr-4" /> View History
       </Link>
     </div>
   </div>
 );
 
-const MeasurementView = ({ user }) => {
+const MeasurementView = () => {
   const navigate = useNavigate();
   const [measurementState, setMeasurementState] = useState('selection'); // selection, measuring, complete
   const [joint, setJoint] = useState('Elbow');
@@ -140,9 +99,9 @@ const MeasurementView = ({ user }) => {
   };
 
   const handleSave = async () => {
-    if (!user || !summary) return;
+    if (!summary) return;
     const log = {
-      userId: user.uid,
+      id: Date.now(),
       timestamp: Date.now(),
       joint,
       exercise,
@@ -152,7 +111,9 @@ const MeasurementView = ({ user }) => {
       avgAngle: summary.avg,
       rawLogData: JSON.stringify(rawLogData),
     };
-    await addDoc(collection(db, `/artifacts/${__app_id}/users/${user.uid}/mobility_logs`), log);
+    const logs = JSON.parse(localStorage.getItem('mobility_logs') || '[]');
+    logs.push(log);
+    localStorage.setItem('mobility_logs', JSON.stringify(logs));
   };
 
   const handleSaveAndMeasureAgain = async () => {
@@ -192,7 +153,7 @@ const MeasurementView = ({ user }) => {
   );
 };
 
-const HistoryView = ({ user }) => {
+const HistoryView = () => {
   const [logs, setLogs] = useState([]);
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [jointFilter, setJointFilter] = useState('All');
@@ -200,15 +161,10 @@ const HistoryView = ({ user }) => {
   const [selectedLog, setSelectedLog] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, `/artifacts/${__app_id}/users/${user.uid}/mobility_logs`), orderBy('timestamp', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLogs(logsData);
-      setFilteredLogs(logsData);
-    });
-    return () => unsubscribe();
-  }, [user]);
+    const logsData = JSON.parse(localStorage.getItem('mobility_logs') || '[]');
+    setLogs(logsData.sort((a, b) => b.timestamp - a.timestamp));
+    setFilteredLogs(logsData);
+  }, []);
 
   useEffect(() => {
     let newFilteredLogs = logs;
@@ -222,20 +178,20 @@ const HistoryView = ({ user }) => {
   }, [logs, jointFilter, exerciseFilter]);
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold">History</h1>
-        <Link to="/" className="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg">Home</Link>
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-white">History</h1>
+        <Link to="/" className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full transition-colors duration-300">Home</Link>
       </div>
-      <div className="flex space-x-4 mb-4">
-        <select value={jointFilter} onChange={e => setJointFilter(e.target.value)} className="bg-gray-800 text-white p-2 rounded-lg">
+      <div className="flex space-x-4 mb-8">
+        <select value={jointFilter} onChange={e => setJointFilter(e.target.value)} className="w-full px-4 py-3 text-white bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
           <option>All</option>
           <option>Elbow</option>
           <option>Knee</option>
           <option>Shoulder</option>
           <option>Hip</option>
         </select>
-        <select value={exerciseFilter} onChange={e => setExerciseFilter(e.target.value)} className="bg-gray-800 text-white p-2 rounded-lg">
+        <select value={exerciseFilter} onChange={e => setExerciseFilter(e.target.value)} className="w-full px-4 py-3 text-white bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
           <option>All</option>
           <option>Flexion</option>
           <option>Extension</option>
@@ -248,50 +204,27 @@ const HistoryView = ({ user }) => {
 };
 
 // --- Components ---
-const SelectionForm = ({ joint, setJoint, exercise, setExercise, duration, setDuration, handleStart, cameraOk, aiHatOk }) => {
-  const hardwareReady = cameraOk && aiHatOk;
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h2 className="text-3xl font-bold mb-8">Measure Mobility</h2>
-      {!hardwareReady && (
-        <div className="bg-yellow-500 text-black p-4 rounded-lg mb-4 max-w-xs text-center">
-          {!cameraOk && <p>Camera not detected. Please connect a camera.</p>}
-          {!aiHatOk && <p>AI HAT not detected. Please ensure it is connected.</p>}
+const LogList = ({ logs, onSelectLog }) => (
+  <div className="space-y-4">
+    {logs.map(log => (
+      <div key={log.id} onClick={() => onSelectLog(log)} className="bg-gray-800 p-6 rounded-xl shadow-lg cursor-pointer hover:bg-gray-700 transition-colors duration-300">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="text-xl font-bold text-white">{log.joint}: {log.exercise}</div>
+            <div className="text-sm text-gray-400">{new Date(log.timestamp).toLocaleString()}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg text-gray-300">Duration: {log.durationSeconds}s</div>
+            <div className="text-lg text-gray-300">Min/Max: {Math.round(log.minAngle)}° / {Math.round(log.maxAngle)}°</div>
+          </div>
         </div>
-      )}
-      <div className="space-y-4 w-full max-w-xs">
-        <div>
-          <label className="text-lg">Joint</label>
-          <select value={joint} onChange={e => setJoint(e.target.value)} className="w-full bg-gray-800 text-white p-2 rounded-lg">
-            <option>Elbow</option>
-            <option>Knee</option>
-            <option>Shoulder</option>
-            <option>Hip</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-lg">Exercise</label>
-          <select value={exercise} onChange={e => setExercise(e.target.value)} className="w-full bg-gray-800 text-white p-2 rounded-lg">
-            <option>Flexion</option>
-            <option>Extension</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-lg">Duration (seconds)</label>
-          <select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="w-full bg-gray-800 text-white p-2 rounded-lg">
-            <option>15</option>
-            <option>30</option>
-            <option>45</option>
-          </select>
-        </div>
-        <button onClick={handleStart} disabled={!hardwareReady} className={`w-full text-white font-bold py-3 px-4 rounded-lg text-xl ${hardwareReady ? 'bg-cyan-500 hover:bg-cyan-600' : 'bg-gray-600 cursor-not-allowed'}`}>
-          Start Measurement
-        </button>
       </div>
-    </div>
-  );
-};
+    ))
+  }
+  </div>
+);
+
 
 const MeasurementInterface = ({ videoRef, canvasRef, model, joint, exercise, duration, setRawLogData, setSummary, setMeasurementState }) => {
   const [timeLeft, setTimeLeft] = useState(duration);
@@ -412,66 +345,51 @@ const MeasurementInterface = ({ videoRef, canvasRef, model, joint, exercise, dur
 };
 
 const ResultsScreen = ({ summary, handleDiscard, handleSaveAndMeasureAgain, handleSaveAndMeasureAnother, handleSaveAndViewHistory }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen">
-    <h2 className="text-3xl font-bold mb-8">Measurement Complete</h2>
-    <div className="grid grid-cols-3 gap-4 text-center mb-8">
-      <div>
-        <div className="text-4xl font-bold text-cyan-400">{Math.round(summary.min)}°</div>
-        <div className="text-lg">Min Angle</div>
-      </div>
-      <div>
-        <div className="text-4xl font-bold text-cyan-400">{Math.round(summary.max)}°</div>
-        <div className="text-lg">Max Angle</div>
-      </div>
-      <div>
-        <div className="text-4xl font-bold text-cyan-400">{Math.round(summary.avg)}°</div>
-        <div className="text-lg">Avg Angle</div>
-      </div>
-    </div>
-    <div className="space-y-4 w-full max-w-sm">
-      <button onClick={handleSaveAndMeasureAgain} className="w-full flex items-center justify-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg">
-        <Save className="mr-2" /> Save & Measure Same
-      </button>
-      <button onClick={handleSaveAndMeasureAnother} className="w-full flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg">
-        <PlusCircle className="mr-2" /> Save & Measure Another
-      </button>
-      <button onClick={handleSaveAndViewHistory} className="w-full flex items-center justify-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg">
-        <History className="mr-2" /> Save & View History
-      </button>
-      <button onClick={handleDiscard} className="w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg">
-        <Trash className="mr-2" /> Discard
-      </button>
-    </div>
-  </div>
-);
-
-const LogList = ({ logs, onSelectLog }) => (
-  <div className="space-y-2">
-    {logs.map(log => (
-      <div key={log.id} onClick={() => onSelectLog(log)} className="bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700">
-        <div className="flex justify-between">
-          <div>
-            <div className="font-bold">{log.joint}: {log.exercise}</div>
-            <div>{new Date(log.timestamp).toLocaleString()}</div>
-          </div>
-          <div className="text-right">
-            <div>Duration: {log.durationSeconds}s</div>
-            <div>Min/Max: {Math.round(log.minAngle)}° / {Math.round(log.maxAngle)}°</div>
-          </div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900">
+    <div className="w-full max-w-2xl p-8 space-y-8 bg-gray-800 rounded-2xl shadow-2xl text-center">
+      <h2 className="text-4xl font-bold text-white">Measurement Complete</h2>
+      <div className="grid grid-cols-3 gap-8 text-white">
+        <div>
+          <div className="text-5xl font-bold text-cyan-400">{Math.round(summary.min)}°</div>
+          <div className="text-xl text-gray-400">Min Angle</div>
+        </div>
+        <div>
+          <div className="text-5xl font-bold text-cyan-400">{Math.round(summary.max)}°</div>
+          <div className="text-xl text-gray-400">Max Angle</div>
+        </div>
+        <div>
+          <div className="text-5xl font-bold text-cyan-400">{Math.round(summary.avg)}°</div>
+          <div className="text-xl text-gray-400">Avg Angle</div>
         </div>
       </div>
-    ))}
+      <div className="space-y-4 pt-8">
+        <button onClick={handleSaveAndMeasureAgain} className="w-full flex items-center justify-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-full transition-colors duration-300">
+          <Save className="mr-2" /> Save & Measure Same
+        </button>
+        <button onClick={handleSaveAndMeasureAnother} className="w-full flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-full transition-colors duration-300">
+          <PlusCircle className="mr-2" /> Save & Measure Another
+        </button>
+        <button onClick={handleSaveAndViewHistory} className="w-full flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-full transition-colors duration-300">
+          <History className="mr-2" /> Save & View History
+        </button>
+        <button onClick={handleDiscard} className="w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-full transition-colors duration-300">
+          <Trash className="mr-2" /> Discard
+        </button>
+      </div>
+    </div>
   </div>
 );
 
+
+
 const Modal = ({ log, onClose }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-    <div className="bg-gray-800 p-8 rounded-lg max-w-2xl w-full">
-      <h3 className="text-2xl font-bold mb-4">Log Details</h3>
-      <pre className="bg-gray-900 p-4 rounded-lg text-sm overflow-auto max-h-96">
+  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
+    <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-2xl w-full">
+      <h3 className="text-3xl font-bold text-white mb-6">Log Details</h3>
+      <pre className="bg-gray-900 p-6 rounded-lg text-sm text-gray-300 overflow-auto max-h-96">
         {JSON.stringify(JSON.parse(log.rawLogData), null, 2)}
       </pre>
-      <button onClick={onClose} className="mt-4 bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg">
+      <button onClick={onClose} className="mt-6 w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-full transition-colors duration-300">
         Close
       </button>
     </div>
