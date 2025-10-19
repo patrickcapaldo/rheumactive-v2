@@ -1,34 +1,53 @@
 #!/bin/bash
 
-# ===================================================================
-# RheumActive v2 - Pose Detection Runner
-#
-# This script runs the standard rpicam-hello application with the
-# Hailo YOLOv8 pose estimation post-processing configuration.
-# ===================================================================
+# --- Configuration Variables ---
 
-echo "Starting Real-Time Pose Estimation..."
+# The full command that successfully launches the pose detection application.
+# We are using the ABSOLUTE path for the configuration file to ensure portability.
+# Your working path: /usr/share/rpi-camera-assets/hailo_yolov8_pose.json
+CONFIG_FILE="/usr/share/rpi-camera-assets/hailo_yolov8_pose.json"
 
-# If the DISPLAY variable isn't set (e.g., in an SSH session),
-# set it to :0.0 to output to the primary monitor.
-if [ -z "$DISPLAY" ]; then
-  echo "DISPLAY variable not set. Setting to ':0.0'."
-  export DISPLAY=:0.0
+# --- Pre-flight Checks ---
+
+echo "Starting Real-Time Pose Estimation from rheumactive-v2 repo..."
+
+# 1. Check if the required configuration file exists on the system.
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo " "
+    echo "--- FATAL ERROR ---"
+    echo "Required pose detection configuration file not found at: $CONFIG_FILE"
+    echo "Please ensure the Raspberry Pi Camera assets and Hailo packages are correctly installed."
+    echo "Exiting the script."
+    echo "-------------------"
+    exit 1
 fi
 
-# Path to the post-processing configuration file
-# This file was installed system-wide by the 'hailo-all' package
-POST_PROCESS_FILE="/usr/share/hailo/postprocesses/rpicam_apps/hailo_yolov8_pose.json"
-
-# Check if the config file exists
-if [ ! -f "$POST_PROCESS_FILE" ]; then
-  echo "Error: Pose detection config file not found at $POST_PROCESS_FILE"
-  echo "Please ensure the Hailo software stack is installed correctly (see setup/02-software-install.md)."
-  exit 1
+# 2. Check if the main executable is in the system PATH.
+if ! command -v rpicam-hello &> /dev/null
+then
+    echo " "
+    echo "--- FATAL ERROR ---"
+    echo "The 'rpicam-hello' command was not found in the system PATH."
+    echo "Please ensure the official Raspberry Pi Camera application package is installed."
+    echo "Exiting the script."
+    echo "-------------------"
+    exit 1
 fi
 
-# Run the camera application with the Hailo post-processing
-# -t 0: Run indefinitely (until Ctrl+C)
-rpicam-hello -t 0 --post-process-file "$POST_PROCESS_FILE"
+echo "All dependencies and configuration confirmed. Launching application..."
+echo " "
 
-echo "Pose estimation stopped."
+# --- Main Application Execution ---
+
+# Run the command that you confirmed works, using the -t 0 (timeout 0, run indefinitely)
+# and the absolute path to the configuration file.
+rpicam-hello -t 0 --post-process-file "$CONFIG_FILE"
+```eof
+
+### How to Finalise
+
+1.  **Replace the script:** Save this new content into your `run_pose_detection.sh` file inside your `rheumactive-v2` repo.
+2.  **Test:** You should now be able to run it successfully from the root of your `rheumactive-v2` repo:
+    ```bash
+    patrick@rpi5:~/rheumactive-v2 $ ./scripts/run_pose_detection.sh
+    ```
