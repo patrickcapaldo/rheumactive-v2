@@ -1,8 +1,6 @@
 # RheumActive v2
 
-[TODO: Write a 1-2 sentence description of your project's goal.]
-
-This project uses a Raspberry Pi 5 with a Hailo AI HAT+ to perform real-time pose estimation for [TODO: ...your specific application].
+This is the second version of RheumActive, a system that helps people with rheumatoid arthritis to monitor and improve their mobility.
 
 ## Project Structure
 
