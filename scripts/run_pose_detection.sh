@@ -42,12 +42,3 @@ echo " "
 # Run the command that you confirmed works, using the -t 0 (timeout 0, run indefinitely)
 # and the absolute path to the configuration file.
 rpicam-hello -t 0 --post-process-file "$CONFIG_FILE"
-```eof
-
-### How to Finalise
-
-1.  **Replace the script:** Save this new content into your `run_pose_detection.sh` file inside your `rheumactive-v2` repo.
-2.  **Test:** You should now be able to run it successfully from the root of your `rheumactive-v2` repo:
-    ```bash
-    patrick@rpi5:~/rheumactive-v2 $ ./scripts/run_pose_detection.sh
-    ```

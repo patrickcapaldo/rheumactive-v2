@@ -25,29 +25,20 @@ Before starting, ensure you have:
    - `hailort-pcie-driver_4.23.0_all.deb`
 
 3. Verify files are in the correct location:
-   ```bash
+```bash
    ls -lh ~/Downloads/*.deb
-   ```
+```
    
    You should see both `.deb` files listed.
 
 ## Step 2: Clone This Repository
-
 ```bash
 cd ~
 git clone https://github.com/patrickcapaldo/rheumactive-v2.git
 cd rheumactive-v2
 ```
 
-## Step 3: Make Scripts Executable
-
-```bash
-chmod +x scripts/setup/*.sh
-chmod +x scripts/*.sh
-```
-
-## Step 4: Run Automated Installation
-
+## Step 3: Run Automated Installation
 ```bash
 make full-install
 ```
@@ -64,7 +55,6 @@ This will:
 ### What You'll See
 
 The installation will show progress like this:
-
 ```
 === System Requirements Check ===
 Checking OS version... ✓ Bookworm detected
@@ -78,22 +68,19 @@ Installing: hailort_4.23.0_arm64.deb
 ...
 ```
 
-## Step 5: Reboot
+## Step 4: Reboot
 
 After installation completes, you'll see:
-
 ```
 ⚠⚠⚠ REBOOT REQUIRED ⚠⚠⚠
 ```
 
 Reboot your system:
-
 ```bash
 sudo reboot
 ```
 
-## Step 6: Verify Installation (After Reboot)
-
+## Step 5: Verify Installation (After Reboot)
 ```bash
 cd ~/rheumactive-v2
 make mark-reboot-done
@@ -101,7 +88,6 @@ make verify-install
 ```
 
 You should see:
-
 ```
 === Verifying Hailo Installation ===
 Checking HailoRT package... ✓ Installed (version: 4.23.0)
@@ -111,8 +97,7 @@ Checking kernel module... ✓ Loaded
 === ✓ Installation verified successfully ===
 ```
 
-## Step 7: Setup Permissions
-
+## Step 6: Setup Permissions
 ```bash
 make setup-permissions
 ```
@@ -121,8 +106,7 @@ make setup-permissions
 - Log out and log back in, OR
 - Run: `newgrp hailo`
 
-## Step 8: Test Pose Detection! 🎉
-
+## Step 7: Test Pose Detection! 🎉
 ```bash
 ./scripts/run_pose_detection.sh
 ```
@@ -164,7 +148,6 @@ make full-install
 ## Manual Installation (Alternative)
 
 If you prefer to run steps individually:
-
 ```bash
 # 1. System check
 ./scripts/setup/01_check_system.sh

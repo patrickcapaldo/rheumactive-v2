@@ -57,6 +57,8 @@ full-install: check-system install-hailo verify-install setup-permissions
 check-system: $(SYSTEM_CHECK_MARKER)
 
 $(SYSTEM_CHECK_MARKER):
+	@echo "$(YELLOW)Setting script permissions...$(NC)"
+	@chmod +x scripts/setup/*.sh scripts/*.sh
 	@echo "$(YELLOW)Checking system requirements...$(NC)"
 	@mkdir -p $(MARKER_DIR)
 	@./scripts/setup/01_check_system.sh
