@@ -17,9 +17,12 @@ class State(rx.State):
 
 class MeasureState(State):
     """State for the measurement setup page."""
+    # Form fields
     joint: str = "Elbow"
     exercise: str = "Flexion"
-    duration: int = 15
+    duration: int = 30
+
+    # Measurement status
     is_measuring: bool = False
     countdown: int = 0
     current_angle: float = 0.0
@@ -57,7 +60,7 @@ class MeasureState(State):
             self.countdown = self.duration - rx.moment.utcnow().diff(start_time, "seconds")
             self.current_angle = 90 + 45 * rx.random.uniform() * (self.countdown % 7)
             raw_data.append(self.current_angle)
-            yield rx.sleep(0.1)
+            await asyncio.sleep(0.1)
         self.is_measuring = False
         if raw_data:
             self.results = {
@@ -153,6 +156,7 @@ def measure_page() -> rx.Component:
         ),
         rx.cond(
             MeasureState.is_measuring,
+            # Active Measurement View
             rx.vstack(
                 rx.heading("Measuring...", size="8"),
                 rx.text(f"{MeasureState.joint}: {MeasureState.exercise}", size="5", color_scheme="gray"),
@@ -164,6 +168,7 @@ def measure_page() -> rx.Component:
                 ),
                 align="center", justify="center", height="100vh",
             ),
+            # Setup Form View
             rx.vstack(
                 rx.heading("New Measurement", size="8"),
                 rx.card(
@@ -194,7 +199,7 @@ def measure_page() -> rx.Component:
                             rx.segmented_control.item("30s", value="30s"),
                             rx.segmented_control.item("45s", value="45s"),
                             rx.segmented_control.item("60s", value="60s"),
-                            default_value=str(MeasureState.duration) + "s", on_change=MeasureState.set_duration_str
+                            value=str(MeasureState.duration) + "s", on_change=MeasureState.set_duration_str
                         ),
                         spacing="4",
                     ),
@@ -202,7 +207,10 @@ def measure_page() -> rx.Component:
                 ),
                 rx.hstack(
                     rx.link(rx.button("Back", variant="soft"), href="/"),
-                    rx.button(rx.hstack(rx.text("Begin"), rx.icon("play")), on_click=MeasureState.start_measurement),
+                    rx.button(
+                        rx.hstack(rx.text("Begin"), rx.icon("play")),
+                        on_click=MeasureState.start_measurement,
+                    ),
                     spacing="4", padding_top="1em",
                 ),
                 align="center", justify="center", height="100vh",
