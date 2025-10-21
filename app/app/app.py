@@ -174,7 +174,11 @@ class HistoryState(State):
 class LogDetailState(State):
     pass
 
-# --- UI --- 
+# --- Reusable Components ---
+def stat_card(title, value):
+    return rx.card(rx.vstack(rx.text(title, size="2", color_scheme="gray"), rx.heading(value, size="7"), spacing="1", align="center"), width="100%")
+
+# --- Pages ---
 def index() -> rx.Component:
     return rx.flex(
         rx.vstack(
