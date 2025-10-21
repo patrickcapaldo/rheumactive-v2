@@ -1,65 +1,100 @@
 # RheumActive v2 - Automated Setup Scripts
 
 This directory contains automated installation scripts for setting up the Hailo AI software stack on Raspberry Pi 5.
+It also includes the RheumActive web application, built with Flask, for real-time pose estimation.
 
 ## Quick Start
 
-1. **Download required files** from [Hailo Developer Zone](https://hailo.ai/developer-zone/software-downloads/) to `~/Downloads/`:
-   - `hailort_4.23.0_arm64.deb`
-   - `hailort-pcie-driver_4.23.0_all.deb`
+1.  **Download required files** from [Hailo Developer Zone](https://hailo.ai/developer-zone/software-downloads/) to `~/Downloads/`:
+    -   `hailort_4.23.0_arm64.deb`
+    -   `hailort-pcie-driver_4.23.0_all.deb`
 
-2. **Run the full installation**:
-```bash
-   cd ~/rheumactive-v2
-   make full-install
-```
+2.  **Run the full hardware installation**:
+    ```bash
+    cd ~/rheumactive-v2
+    make full-install
+    ```
 
-3. **Reboot your system**:
-```bash
-   sudo reboot
-```
+3.  **Reboot your system**:
+    ```bash
+    sudo reboot
+    ```
 
-4. **After reboot, verify installation**:
-```bash
-   cd ~/rheumactive-v2
-   make mark-reboot-done
-   make verify-install
-```
+4.  **After reboot, verify installation**:
+    ```bash
+    cd ~/rheumactive-v2
+    make mark-reboot-done
+    make verify-install
+    ```
 
-5. **Test pose detection**:
-```bash
-   ./scripts/run_pose_detection.sh
-```
+5.  **Set up the Web Application environment**:
+    ```bash
+    cd ~/rheumactive-v2/app
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    ```
+    *(Ensure `libcap-dev` is installed on your system: `sudo apt-get install libcap-dev`)*
+
+6.  **Run the Web Application**:
+    Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
+
+## Project Architecture (Web Application)
+
+To overcome compatibility issues with hardware-specific libraries (`picamera2`) and Python virtual environments, the web application uses a two-process architecture:
+
+1.  **Flask Backend (`app.py`):**
+    *   Runs in an **isolated Python virtual environment**.
+    *   Manages the web server, serves HTML, and provides API endpoints for angle data and video streams.
+    *   Communicates with the `camera_streamer.py` process via a TCP socket.
+
+2.  **Camera Streamer (`camera_streamer.py`):**
+    *   Runs using the **system's Python interpreter** (where `picamera2` and `opencv-python` are typically installed and configured for hardware access).
+    *   Initializes `picamera2` to capture frames from the Raspberry Pi Camera.
+    *   Performs mock pose detection (this is where Hailo inference would be integrated).
+    *   Encodes frames to MJPEG and sends them, along with angle data, over a TCP socket to the Flask backend.
+
+This separation ensures that the hardware-dependent code runs in its native environment while the web application remains isolated and manageable.
 
 ## Running the Web Application
 
-The user interface is a web application built with the Reflex framework.
+To run the RheumActive web application, you need to start two separate Python processes in two different terminal windows:
 
-1.  **Navigate to the app directory**:
+#### **Terminal Window 1: Start the Flask Backend**
+
+1.  **Navigate to the `app` directory**:
     ```bash
-    cd /home/patrick/projects/rheumactive-v2/app
+    cd ~/rheumactive-v2/app
     ```
 
-2.  **Activate the Python virtual environment**:
-    This command activates the isolated Python environment for the web app.
+2.  **Activate the virtual environment**:
     ```bash
     source .venv/bin/activate
     ```
-    *(Note: If you open a new terminal, you'll need to activate the environment again.)*
 
-3.  **Install Python dependencies**:
-    This ensures you have all the necessary Python packages.
+3.  **Run the Flask application**:
     ```bash
-    pip install -r requirements.txt
+    python3 app.py
+    ```
+    *(You should see Flask starting up and a message like "Flask app listening for camera streamer on 127.0.0.1:5001".)*
+
+#### **Terminal Window 2: Start the Camera Streamer**
+
+1.  **Navigate to the `app` directory**:
+    ```bash
+    cd ~/rheumactive-v2/app
     ```
 
-4.  **Run the app**:
+2.  **Run the camera streamer using your system's Python**:
+    *(Do NOT activate the virtual environment in this terminal, as `picamera2` is installed globally.)*
     ```bash
-    reflex run
+    python3 camera_streamer.py
     ```
+    *(You should see messages about the camera initializing and "Connected to Flask app.".)*
 
-5.  **View the application**:
-    Once the server is running, open your web browser and navigate to `http://localhost:3000`.
+Once both processes are running, open your web browser and navigate to **http://localhost:5000**.
+
+---
 
 ## Available Make Targets
 
@@ -136,6 +171,7 @@ The Makefile orchestrates these scripts in the correct order:
 
 **Usage**:
 ```bash
+bash
 ./scripts/setup/05_setup_permissions.sh
 ```
 
@@ -143,10 +179,7 @@ The Makefile orchestrates these scripts in the correct order:
 
 ## Installation Workflow
 
-The Makefile tracks progress using marker files in `.install_markers/`. This ensures:
-- Steps aren't repeated unnecessarily
-- You can resume after interruption
-- Dependencies are respected
+The Makefile orchestrates these scripts in the correct order:
 
 ### Normal Installation Flow
 ```
@@ -183,7 +216,7 @@ make clean
 ## Troubleshooting
 
 ### "Driver version mismatch" error
-This occurs when the kernel module version doesn't match the library version.
+This occurs when the kernel module version doesn\'t match the library version.
 ```bash
 # Check versions
 cat /sys/module/hailo_pci/version
@@ -226,7 +259,7 @@ rm .install_markers/03_driver_install
 make clean
 ```
 
-### Reboot required but can't verify
+### Reboot required but can\'t verify
 After rebooting, if verification still fails:
 ```bash
 # Manually clear the reboot marker
