@@ -4,6 +4,7 @@ import reflex as rx
 import asyncio
 import os
 import json
+import time
 from datetime import datetime
 import cv2
 import numpy as np
@@ -110,19 +111,19 @@ class MeasureState(State):
         self.live_frame = base64.b64encode(buffer).decode('utf-8')
 
     async def on_page_load(self):
+        """Run hardware checks and start the live preview loop."""
         self.camera_ok = initialize_camera()
         if not self.camera_ok:
             self.camera_error = "Camera not detected."
             return
         self.camera_error = ""
-        yield self.live_pose_preview
 
-    async def live_pose_preview(self):
+        # Start the preview loop directly
         while not self.is_measuring:
             if picam2 is None: break
             frame = picam2.capture_array()
             self._process_frame(frame)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.05) # ~20 FPS
 
     async def start_measurement(self):
         self.is_measuring = True
@@ -170,11 +171,7 @@ class HistoryState(State):
 class LogDetailState(State):
     pass
 
-# --- Reusable Components ---
-def stat_card(title, value):
-    return rx.card(rx.vstack(rx.text(title, size="2", color_scheme="gray"), rx.heading(value, size="7"), spacing="1", align="center"), width="100%")
-
-# --- Pages ---
+# --- UI --- 
 def index() -> rx.Component:
     return rx.flex(
         rx.vstack(
@@ -224,10 +221,14 @@ def measure_page() -> rx.Component:
                     ),
                     width="100%", max_width="500px",
                 ),
+                # Live angle and status checks
                 rx.vstack(
                     rx.cond(
                         MeasureState.camera_ok,
-                        stat_card("Live Angle", f"{MeasureState.formatted_current_angle}°"),
+                        rx.vstack(
+                            rx.image(src=f"data:image/jpeg;base64,{MeasureState.live_frame}", width="100%", height="auto"),
+                            stat_card("Live Angle", f"{MeasureState.formatted_current_angle}°"),
+                        ),
                         rx.callout(MeasureState.camera_error, icon="triangle_alert", color_scheme="orange", variant="soft"),
                     ),
                     padding_top="1em", width="100%", max_width="500px",
@@ -246,6 +247,7 @@ def measure_page() -> rx.Component:
 def history_page() -> rx.Component:
     return rx.vstack(
         rx.heading("History", size="8"),
+        # UI Simplified until foreach is resolved
         rx.link(rx.button("Back", variant="soft"), href="/"),
         align="center", spacing="4", padding_top="2em", height="100vh",
     )
