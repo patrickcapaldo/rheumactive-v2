@@ -93,7 +93,6 @@ class MeasureState(State):
         return not self.camera_ok or not self.joint_found
 
     def _process_frame(self, frame):
-        print(f"--- Processing frame of shape: {frame.shape} ---")
         # MOCK HAIlo INFERENCE
         mock_keypoints = np.zeros((17, 3), dtype=np.float32)
         mock_keypoints[5] = [CAMERA_WIDTH * 0.3, CAMERA_HEIGHT * 0.4, 0.95] # L-Shoulder
@@ -108,9 +107,7 @@ class MeasureState(State):
         cv2.putText(frame, f"Angle: {self.current_angle:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         _, buffer = cv2.imencode('.jpg', frame)
-        encoded_frame = base64.b64encode(buffer).decode('utf-8')
-        print(f"Encoded frame, first 50 chars: {encoded_frame[:50]}")
-        self.live_frame = encoded_frame
+        self.live_frame = base64.b64encode(buffer).decode('utf-8')
 
     async def start_preview(self):
         """Event handler to initialize camera and start the preview task."""
@@ -118,16 +115,15 @@ class MeasureState(State):
         if not self.camera_ok:
             return
         self.is_previewing = True
-        # This is a fire-and-forget background task.
-        asyncio.create_task(self.live_pose_preview())
+        yield self.live_pose_preview
 
     async def live_pose_preview(self):
-        """The actual background task for streaming."""
+        """A background task that streams camera frames."""
         while self.is_previewing and not self.is_measuring:
             if picam2 is None: return
             frame = picam2.capture_array()
             self._process_frame(frame)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.2) # Reduced frame rate to 5 FPS
 
     async def start_measurement(self):
         self.is_previewing = False
@@ -146,7 +142,7 @@ class MeasureState(State):
             frame = picam2.capture_array()
             self._process_frame(frame)
             raw_data.append(self.current_angle)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.2) # Reduced frame rate to 5 FPS
         self.is_measuring = False
         if raw_data:
             self.results = {"min": round(min(raw_data), 1), "max": round(max(raw_data), 1), "avg": round(sum(raw_data) / len(raw_data), 1)}
