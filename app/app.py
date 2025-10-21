@@ -1,0 +1,132 @@
+import os
+import json
+import time
+import socket
+import subprocess
+import threading
+from datetime import datetime
+
+from flask import Flask, render_template, Response
+
+# --- Configuration ---
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5001
+LOGS_DIR = "logs"
+
+# --- Global Data ---
+latest_frame_data = {"image": "", "angle": 0.0}
+camera_process = None
+
+# --- Flask App Setup ---
+app = Flask(__name__)
+
+# --- Inter-Process Communication (IPC) ---
+
+def socket_listener():
+    global latest_frame_data
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((TCP_IP, TCP_PORT))
+    server_socket.listen(1)
+    print(f"Flask app listening for camera streamer on {TCP_IP}:{TCP_PORT}")
+
+    conn, addr = server_socket.accept()
+    print(f"Camera streamer connected from {addr}")
+
+    buffer = b""
+    payload_size = 4  # Size of message length field
+
+    while True:
+        try:
+            while len(buffer) < payload_size:
+                data = conn.recv(4096)
+                if not data: break
+                buffer += data
+            
+            if not data: break # Connection closed
+
+            packed_msg_size = buffer[:payload_size]
+            buffer = buffer[payload_size:]
+            msg_size = int.from_bytes(packed_msg_size, 'big')
+
+            while len(buffer) < msg_size:
+                data = conn.recv(4096)
+                if not data: break
+                buffer += data
+            
+            if not data: break # Connection closed
+
+            frame_data = buffer[:msg_size]
+            buffer = buffer[msg_size:]
+
+            data = json.loads(frame_data.decode('utf-8'))
+            latest_frame_data["image"] = data["image"]
+            latest_frame_data["angle"] = data["angle"]
+
+        except Exception as e:
+            print(f"Error in socket listener: {e}")
+            break
+    print("Socket listener stopped.")
+    conn.close()
+    server_socket.close()
+
+def start_camera_streamer():
+    global camera_process
+    if camera_process is None or camera_process.poll() is not None:
+        print("Starting camera_streamer.py subprocess...")
+        # Use sys.executable to ensure the correct Python interpreter is used
+        # For the streamer, it should be the system's python, not the venv's.
+        # We assume the user will run this Flask app from the venv, but the streamer
+        # needs to be run with the system python where picamera2 is installed.
+        # So, we explicitly call 'python3' which should be the system's python.
+        camera_process = subprocess.Popen(["python3", "camera_streamer.py"], cwd=app.root_path)
+        print(f"Camera streamer PID: {camera_process.pid}")
+
+# --- Flask Routes ---
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/video_feed')
+def video_feed():
+    def generate():
+        while True:
+            if latest_frame_data["image"]:
+                frame = base64.b64decode(latest_frame_data["image"])
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + f'{len(frame)}'.encode() + b'\r\n\r\n' +
+                       frame + b'\r\n')
+            time.sleep(0.05) # ~20 FPS
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/angle_feed')
+def angle_feed():
+    return json.dumps({"angle": latest_frame_data["angle"]})
+
+# --- App Lifecycle ---
+
+@app.before_first_request
+def before_first_request():
+    # Start the socket listener in a separate thread
+    listener_thread = threading.Thread(target=socket_listener, daemon=True)
+    listener_thread.start()
+    # Give the listener a moment to bind
+    time.sleep(1)
+    # Start the camera streamer subprocess
+    start_camera_streamer()
+
+@app.teardown_appcontext
+def teardown_appcontext(exception=None):
+    global camera_process
+    if camera_process:
+        print("Terminating camera streamer subprocess...")
+        camera_process.terminate()
+        camera_process.wait()
+        camera_process = None
+
+if __name__ == '__main__':
+    # Ensure logs directory exists
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
