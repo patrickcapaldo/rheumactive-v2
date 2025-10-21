@@ -110,12 +110,15 @@ class MeasureState(State):
         self.live_frame = base64.b64encode(buffer).decode('utf-8')
 
     async def start_preview(self):
-        """Initialize camera and start the preview loop."""
+        """Event handler to initialize camera and start the preview task."""
         self.camera_ok = initialize_camera()
         if not self.camera_ok:
             return
-        
         self.is_previewing = True
+        yield self.live_pose_preview
+
+    async def live_pose_preview(self):
+        """A background task that streams camera frames."""
         while self.is_previewing and not self.is_measuring:
             if picam2 is None: return
             frame = picam2.capture_array()
@@ -240,7 +243,7 @@ def measure_page() -> rx.Component:
                     rx.button(rx.hstack(rx.text("Begin"), rx.icon("play")), on_click=MeasureState.start_measurement, disabled=MeasureState.begin_disabled),
                     spacing="4", padding_top="1em",
                 ),
-                align="center", justify="center", height="100vh",
+                align="center", justify="center",
             ),
         ),
     )
@@ -248,6 +251,7 @@ def measure_page() -> rx.Component:
 def history_page() -> rx.Component:
     return rx.vstack(
         rx.heading("History", size="8"),
+        # UI Simplified until foreach is resolved
         rx.link(rx.button("Back", variant="soft"), href="/"),
         align="center", spacing="4", padding_top="2em", height="100vh",
     )
