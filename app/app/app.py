@@ -112,15 +112,18 @@ class MeasureState(State):
 
     async def on_page_load(self):
         """Run hardware checks and start the live preview loop."""
+        self.camera_error = "Checking for camera..."
         self.camera_ok = initialize_camera()
         if not self.camera_ok:
             self.camera_error = "Camera not detected."
             return
         self.camera_error = ""
+        return self.live_pose_preview
 
-        # Start the preview loop directly
+    async def live_pose_preview(self):
+        """Continuously stream camera frames for live preview."""
         while not self.is_measuring:
-            if picam2 is None: break
+            if picam2 is None: return
             frame = picam2.capture_array()
             self._process_frame(frame)
             await asyncio.sleep(0.05) # ~20 FPS
@@ -171,11 +174,7 @@ class HistoryState(State):
 class LogDetailState(State):
     pass
 
-# --- Reusable Components ---
-def stat_card(title, value):
-    return rx.card(rx.vstack(rx.text(title, size="2", color_scheme="gray"), rx.heading(value, size="7"), spacing="1", align="center"), width="100%")
-
-# --- Pages ---
+# --- UI --- 
 def index() -> rx.Component:
     return rx.flex(
         rx.vstack(
@@ -225,7 +224,6 @@ def measure_page() -> rx.Component:
                     ),
                     width="100%", max_width="500px",
                 ),
-                # Live angle and status checks
                 rx.vstack(
                     rx.cond(
                         MeasureState.camera_ok,
