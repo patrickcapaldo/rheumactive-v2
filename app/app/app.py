@@ -2,6 +2,12 @@
 
 import reflex as rx
 import asyncio
+import os
+import json
+from datetime import datetime
+
+# --- Constants ---
+LOGS_DIR = "logs"
 
 # --- State Management ---
 
@@ -61,6 +67,24 @@ class MeasureState(State):
             }
         self.show_results = True
 
+    def save_log(self):
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        now = datetime.now()
+        timestamp_unix = int(now.timestamp() * 1000)
+        log_data = {
+            "id": timestamp_unix,
+            "timestamp_unix": timestamp_unix,
+            "timestamp_human": now.strftime("%H:%M:%S, %d %B, %Y"),
+            "joint": self.joint,
+            "exercise": self.exercise,
+            "duration": self.duration,
+            "results": self.results,
+        }
+        file_path = os.path.join(LOGS_DIR, f"{timestamp_unix}.json")
+        with open(file_path, "w") as f:
+            json.dump(log_data, f, indent=4)
+        self.show_results = False
+
     def close_results_dialog(self):
         self.show_results = False
 
@@ -89,15 +113,20 @@ def stat_card(title, value):
 # --- Pages ---
 def index() -> rx.Component:
     return rx.flex(
-        rx.heading("RheumActive", size="9", weight="bold", trim="both"),
-        rx.text("Your personal joint mobility measurement tool.", size="5", color_scheme="gray"),
-        rx.spacer(height="32px"),
-        rx.hstack(
-            rx.link(rx.button(rx.hstack(rx.icon("ruler"), rx.text("Measure")), size="4", high_contrast=True), href="/measure"),
-            rx.link(rx.button("History", size="4", variant="soft"), href="/history"),
-            spacing="4",
+        rx.vstack(
+            rx.heading("RheumActive", size="9", weight="bold", trim="both"),
+            rx.text("Your personal joint mobility measurement tool.", size="5", color_scheme="gray"),
+            rx.spacer(height="48px"),
+            rx.hstack(
+                rx.link(rx.button(rx.hstack(rx.icon("ruler"), rx.text("Measure")), size="4", high_contrast=True), href="/measure"),
+                rx.link(rx.button(rx.hstack(rx.icon("history"), rx.text("History")), size="4", high_contrast=True), href="/history"),
+                spacing="4",
+            ),
+            align="center",
         ),
-        direction="column", align="center", justify="center", height="100vh",
+        align="center",
+        justify="center",
+        height="100vh",
     )
 
 def measure_page() -> rx.Component:
@@ -114,12 +143,9 @@ def measure_page() -> rx.Component:
                     )
                 ),
                 rx.flex(
-                    rx.link(rx.button("Return to Menu", size="3", variant="soft"), href="/"),
-                    rx.flex(
-                        rx.dialog.close(rx.button("Measure Again", size="3", variant="soft", on_click=MeasureState.close_results_dialog)),
-                        rx.link(rx.button("Save & Return", size="3"), href="/"),
-                        spacing="3",
-                    ),
+                    rx.dialog.close(rx.button("Discard", size="3", variant="soft", color_scheme="gray")),
+                    rx.spacer(),
+                    rx.link(rx.button("Save & Return", size="3", on_click=MeasureState.save_log), href="/"),
                     justify="between", width="100%",
                 ),
             ),
@@ -237,7 +263,7 @@ def log_detail_page() -> rx.Component:
     )
 
 app = rx.App(style=base_style, theme=rx.theme(appearance="dark", accent_color="cyan", radius="large"))
-app.add_page(index)
-app.add_page(measure_page)
-app.add_page(history_page)
+app.add_page(index, route="/")
+app.add_page(measure_page, route="/measure")
+app.add_page(history_page, route="/history")
 app.add_page(log_detail_page, route="/history/[log_id]")
