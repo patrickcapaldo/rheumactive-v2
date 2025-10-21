@@ -1,0 +1,182 @@
+"""The main application file for the RheumActive v2 web app."""
+
+import reflex as rx
+import asyncio
+import os
+import json
+import time
+from datetime import datetime
+import cv2
+import numpy as np
+import base64
+
+# --- Constants ---
+LOGS_DIR = "logs"
+
+# --- Helper Functions ---
+def get_angle(p1, p2, p3):
+    v1 = p1 - p2
+    v2 = p3 - p2
+    dot_product = np.dot(v1, v2)
+    norm_product = np.linalg.norm(v1) * np.linalg.norm(v2)
+    if norm_product == 0: return 0.0
+    cosine_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
+    return np.degrees(np.arccos(cosine_angle))
+
+# --- State Management ---
+
+class State(rx.State):
+    pass
+
+class MeasureState(State):
+    joint: str = "Elbow"
+    exercise: str = "Flexion"
+    duration: int = 30
+
+    # Status variables
+    is_measuring: bool = False
+    countdown: int = 0
+    current_angle: float = 0.0
+    show_results: bool = False
+    results: dict = {"min": 0, "max": 0, "avg": 0}
+
+    def set_joint(self, joint: str):
+        self.joint = joint
+
+    def set_exercise(self, exercise: str):
+        self.exercise = exercise
+
+    @rx.var
+    def formatted_current_angle(self) -> str:
+        return f"{self.current_angle:.1f}"
+
+    def set_duration_str(self, duration_str):
+        self.duration = int(duration_str.replace("s", ""))
+
+    async def start_measurement(self):
+        self.is_measuring = True
+        self.show_results = False
+        self.countdown = self.duration
+        # Simulate measurement without camera
+        raw_data = []
+        start_time = rx.moment.utcnow()
+        while True:
+            if rx.moment.utcnow().diff(start_time, "seconds") > self.duration: break
+            self.countdown = self.duration - rx.moment.utcnow().diff(start_time, "seconds")
+            self.current_angle = 90 + 45 * rx.random.uniform() * (self.countdown % 7)
+            raw_data.append(self.current_angle)
+            await asyncio.sleep(0.05)
+        self.is_measuring = False
+        if raw_data:
+            self.results = {"min": round(min(raw_data), 1), "max": round(max(raw_data), 1), "avg": round(sum(raw_data) / len(raw_data), 1)}
+        self.show_results = True
+
+    def save_log(self):
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        now = datetime.now()
+        timestamp_unix = int(now.timestamp() * 1000)
+        log_data = {
+            "id": timestamp_unix,
+            "timestamp_unix": timestamp_unix,
+            "timestamp_human": now.strftime("%H:%M:%S, %d %B, %Y"),
+            "joint": self.joint, "exercise": self.exercise, "duration": self.duration, "results": self.results,
+        }
+        file_path = os.path.join(LOGS_DIR, f"{timestamp_unix}.json")
+        with open(file_path, "w") as f:
+            json.dump(log_data, f, indent=4)
+        self.show_results = False
+
+    def close_results_dialog(self):
+        self.show_results = False
+
+class HistoryState(State):
+    pass
+
+class LogDetailState(State):
+    pass
+
+# --- Reusable Components ---
+def stat_card(title, value):
+    return rx.card(rx.vstack(rx.text(title, size="2", color_scheme="gray"), rx.heading(value, size="7"), spacing="1", align="center"), width="100%")
+
+# --- Pages ---
+def index() -> rx.Component:
+    return rx.flex(
+        rx.vstack(
+            rx.heading("RheumActive", size="9", weight="bold", trim="both"),
+            rx.text("Your personal joint mobility measurement tool.", size="5", color_scheme="gray"),
+            rx.spacer(height="48px"),
+            rx.hstack(
+                rx.link(rx.button(rx.hstack(rx.icon("ruler"), rx.text("Measure")), size="4", high_contrast=True), href="/measure"),
+                rx.link(rx.button(rx.hstack(rx.icon("history"), rx.text("History")), size="4", high_contrast=True), href="/history"),
+                spacing="4",
+            ),
+            align="center",
+        ),
+        align="center", justify="center", height="100vh",
+    )
+
+def measure_page() -> rx.Component:
+    return rx.container(
+        rx.dialog.root(
+            rx.dialog.content(
+                rx.dialog.title("Measurement Complete"),
+                rx.dialog.description(rx.hstack(stat_card("Min Angle", f"{MeasureState.results['min']}°"), stat_card("Max Angle", f"{MeasureState.results['max']}°"), stat_card("Avg Angle", f"{MeasureState.results['avg']}°"), spacing="4", padding_y="1em")),
+                rx.flex(rx.dialog.close(rx.button("Discard", size="3", variant="soft", color_scheme="gray")), rx.spacer(), rx.link(rx.button("Save & Return", size="3", on_click=MeasureState.save_log), href="/"), justify="between", width="100%"),
+            ),
+            open=MeasureState.show_results,
+        ),
+        rx.cond(
+            MeasureState.is_measuring,
+            # Active Measurement View
+            rx.vstack(
+                rx.heading("Measuring...", size="8"),
+                rx.text(f"{MeasureState.joint}: {MeasureState.exercise}", size="5", color_scheme="gray"),
+                rx.hstack(stat_card("Time Left", f"{MeasureState.countdown}s"), stat_card("Current Angle", f"{MeasureState.formatted_current_angle}°"), spacing="4", width="100%"),
+                align="center", justify="center", height="100vh",
+            ),
+            # Setup Form View
+            rx.vstack(
+                rx.heading("New Measurement", size="8"),
+                rx.card(
+                    rx.vstack(
+                        rx.text("Joint"),
+                        rx.select.root(rx.select.trigger(), rx.select.content(rx.select.item("Elbow"), rx.select.item("Knee"), rx.select.item("Shoulder"), rx.select.item("Hip")), default_value=MeasureState.joint, on_change=MeasureState.set_joint),
+                        rx.text("Exercise"),
+                        rx.select.root(rx.select.trigger(), rx.select.content(rx.select.item("Flexion"), rx.select.item("Extension")), default_value=MeasureState.exercise, on_change=MeasureState.set_exercise),
+                        rx.text("Duration"),
+                        rx.segmented_control.root(rx.segmented_control.item("15s"), rx.segmented_control.item("30s"), rx.segmented_control.item("45s"), rx.segmented_control.item("60s"), value="30s", on_change=MeasureState.set_duration_str),
+                        spacing="4",
+                    ),
+                    width="100%", max_width="500px",
+                ),
+                rx.hstack(
+                    rx.link(rx.button("Back", variant="soft"), href="/"),
+                    rx.button(rx.hstack(rx.text("Begin"), rx.icon("play")), on_click=MeasureState.start_measurement),
+                    spacing="4", padding_top="1em",
+                ),
+                align="center", justify="center",
+            ),
+        ),
+    )
+
+def history_page() -> rx.Component:
+    return rx.vstack(
+        rx.heading("History", size="8"),
+        # UI Simplified until foreach is resolved
+        rx.link(rx.button("Back", variant="soft"), href="/"),
+        align="center", spacing="4", padding_top="2em", height="100vh",
+    )
+
+def log_detail_page() -> rx.Component:
+    return rx.vstack(
+        rx.heading(f"Log #{LogDetailState.log_id}", size="8"),
+        rx.link(rx.button("Back to History"), href="/history"),
+        align="center", spacing="4", padding_top="2em", height="100vh",
+    )
+
+app = rx.App(theme=rx.theme(appearance="dark", accent_color="cyan", radius="large"))
+app.add_page(index, route="/")
+app.add_page(measure_page, route="/measure")
+app.add_page(history_page, route="/history")
+app.add_page(log_detail_page, route="/history/[log_id]")

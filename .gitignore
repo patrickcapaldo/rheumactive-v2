@@ -1,0 +1,55 @@
+# RheumActive v2 - Git Ignore File
+
+# Installation progress markers
+.install_markers/
+
+# Downloaded Hailo packages
+*.deb
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Node (if using React for UI later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+*.o
+*.a
+
+# System
+.Trash-*/
+Thumbs.db
