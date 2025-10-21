@@ -5,6 +5,10 @@ import asyncio
 import os
 import json
 from datetime import datetime
+import cv2
+import numpy as np
+import base64
+from picamera2 import Picamera2
 
 # --- Constants & Global Objects ---
 LOGS_DIR = "logs"
@@ -15,10 +19,7 @@ CAMERA_HEIGHT = 480
 picam2 = None
 
 def initialize_camera():
-    """Lazy-initialized camera object."""
-    from picamera2 import Picamera2
-    import time
-
+    """Initializes the global camera object."""
     global picam2
     if picam2 is None:
         print("--- Initializing Camera ---")
@@ -32,11 +33,23 @@ def initialize_camera():
             return True
         except Exception as e:
             print(f"FATAL: Could not initialize camera: {e}")
-            # If running on a non-pi device, this will fail.
-            # We can return True here to allow the UI to continue with mock data.
-            # On a real Pi, you would want this to be False.
-            return True # Changed for development on non-Pi hardware
+            return False
     return True
+
+# --- Helper Functions (outside State) ---
+def get_angle(p1, p2, p3):
+    v1 = p1 - p2
+    v2 = p3 - p2
+    dot_product = np.dot(v1, v2)
+    norm_product = np.linalg.norm(v1) * np.linalg.norm(v2)
+    if norm_product == 0: return 0.0
+    cosine_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
+    return np.degrees(np.arccos(cosine_angle))
+
+def draw_pose(frame, keypoints, confidence_threshold=0.5):
+    for i, point in enumerate(keypoints):
+        if point[2] > confidence_threshold:
+            cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 255, 0), -1)
 
 # --- State Management ---
 
@@ -79,46 +92,37 @@ class MeasureState(State):
     def begin_disabled(self) -> bool:
         return not self.camera_ok or not self.joint_found
 
-    async def on_page_load(self):
-        self.camera_ok = initialize_camera()
-        if not self.camera_ok:
-            self.camera_error = "Camera not detected. Please check connection."
-            return
-        self.camera_error = ""
-        yield self.live_pose_preview
-
     def _process_frame(self, frame):
-        import cv2
-        import numpy as np
-        import base64
-
         # MOCK HAIlo INFERENCE
         mock_keypoints = np.zeros((17, 3), dtype=np.float32)
         mock_keypoints[5] = [CAMERA_WIDTH * 0.3, CAMERA_HEIGHT * 0.4, 0.95] # L-Shoulder
         mock_keypoints[7] = [CAMERA_WIDTH * 0.5, CAMERA_HEIGHT * 0.5, 0.95] # L-Elbow
         mock_keypoints[9] = [CAMERA_WIDTH * 0.4, CAMERA_HEIGHT * 0.7, 0.95] # L-Wrist
 
-        # Calculate angle
-        p1 = mock_keypoints[5, :2]
-        p2 = mock_keypoints[7, :2]
-        p3 = mock_keypoints[9, :2]
+        p1, p2, p3 = mock_keypoints[5, :2], mock_keypoints[7, :2], mock_keypoints[9, :2]
         self.current_angle = get_angle(p1, p2, p3)
         self.joint_found = True
 
-        # Draw pose on the frame for visualization
         draw_pose(frame, mock_keypoints)
         cv2.putText(frame, f"Angle: {self.current_angle:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        # Encode frame for streaming
         _, buffer = cv2.imencode('.jpg', frame)
         self.live_frame = base64.b64encode(buffer).decode('utf-8')
+
+    async def on_page_load(self):
+        self.camera_ok = initialize_camera()
+        if not self.camera_ok:
+            self.camera_error = "Camera not detected."
+            return
+        self.camera_error = ""
+        yield self.live_pose_preview
 
     async def live_pose_preview(self):
         while not self.is_measuring:
             if picam2 is None: break
             frame = picam2.capture_array()
             self._process_frame(frame)
-            await asyncio.sleep(0.05) # ~20 FPS
+            await asyncio.sleep(0.05)
 
     async def start_measurement(self):
         self.is_measuring = True
@@ -131,23 +135,15 @@ class MeasureState(State):
         start_time = rx.moment.utcnow()
         while True:
             if picam2 is None: break
-            if rx.moment.utcnow().diff(start_time, "seconds") > self.duration:
-                break
+            if rx.moment.utcnow().diff(start_time, "seconds") > self.duration: break
             self.countdown = self.duration - rx.moment.utcnow().diff(start_time, "seconds")
-            
             frame = picam2.capture_array()
             self._process_frame(frame)
             raw_data.append(self.current_angle)
-            
             await asyncio.sleep(0.05)
-
         self.is_measuring = False
         if raw_data:
-            self.results = {
-                "min": round(min(raw_data), 1),
-                "max": round(max(raw_data), 1),
-                "avg": round(sum(raw_data) / len(raw_data), 1),
-            }
+            self.results = {"min": round(min(raw_data), 1), "max": round(max(raw_data), 1), "avg": round(sum(raw_data) / len(raw_data), 1)}
         self.show_results = True
 
     def save_log(self):
@@ -158,10 +154,7 @@ class MeasureState(State):
             "id": timestamp_unix,
             "timestamp_unix": timestamp_unix,
             "timestamp_human": now.strftime("%H:%M:%S, %d %B, %Y"),
-            "joint": self.joint,
-            "exercise": self.exercise,
-            "duration": self.duration,
-            "results": self.results,
+            "joint": self.joint, "exercise": self.exercise, "duration": self.duration, "results": self.results,
         }
         file_path = os.path.join(LOGS_DIR, f"{timestamp_unix}.json")
         with open(file_path, "w") as f:
@@ -172,33 +165,12 @@ class MeasureState(State):
         self.show_results = False
 
 class HistoryState(State):
-    pass # Simplified for now
+    pass
 
 class LogDetailState(State):
     pass
 
-# --- Helper Functions (outside State) ---
-def get_angle(p1, p2, p3):
-    import numpy as np
-    v1 = p1 - p2
-    v2 = p3 - p2
-    dot_product = np.dot(v1, v2)
-    norm_product = np.linalg.norm(v1) * np.linalg.norm(v2)
-    if norm_product == 0: return 0.0
-    cosine_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
-    return np.degrees(np.arccos(cosine_angle))
-
-def draw_pose(frame, keypoints, confidence_threshold=0.5):
-    import cv2
-    for i, point in enumerate(keypoints):
-        if point[2] > confidence_threshold:
-            cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 255, 0), -1)
-
-# --- UI Components ---
-def stat_card(title, value):
-    return rx.card(rx.vstack(rx.text(title, size="2", color_scheme="gray"), rx.heading(value, size="7"), spacing="1", align="center"), width="100%")
-
-# --- Pages ---
+# --- UI --- 
 def index() -> rx.Component:
     return rx.flex(
         rx.vstack(
@@ -248,9 +220,17 @@ def measure_page() -> rx.Component:
                     ),
                     width="100%", max_width="500px",
                 ),
+                rx.vstack(
+                    rx.cond(
+                        MeasureState.camera_ok,
+                        stat_card("Live Angle", f"{MeasureState.formatted_current_angle}°"),
+                        rx.callout(MeasureState.camera_error, icon="triangle_alert", color_scheme="orange", variant="soft"),
+                    ),
+                    padding_top="1em", width="100%", max_width="500px",
+                ),
                 rx.hstack(
                     rx.link(rx.button("Back", variant="soft"), href="/"),
-                    rx.button(rx.hstack(rx.text("Begin"), rx.icon("play")), on_click=MeasureState.start_measurement),
+                    rx.button(rx.hstack(rx.text("Begin"), rx.icon("play")), on_click=MeasureState.start_measurement, disabled=MeasureState.begin_disabled),
                     spacing="4", padding_top="1em",
                 ),
                 align="center", justify="center", height="100vh",
@@ -262,7 +242,6 @@ def measure_page() -> rx.Component:
 def history_page() -> rx.Component:
     return rx.vstack(
         rx.heading("History", size="8"),
-        # UI Simplified until foreach is resolved
         rx.link(rx.button("Back", variant="soft"), href="/"),
         align="center", spacing="4", padding_top="2em", height="100vh",
     )
