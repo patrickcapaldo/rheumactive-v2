@@ -115,10 +115,11 @@ class MeasureState(State):
         if not self.camera_ok:
             return
         self.is_previewing = True
-        yield self.live_pose_preview
+        # This is a fire-and-forget background task.
+        asyncio.create_task(self.live_pose_preview())
 
     async def live_pose_preview(self):
-        """A background task that streams camera frames."""
+        """The actual background task for streaming."""
         while self.is_previewing and not self.is_measuring:
             if picam2 is None: return
             frame = picam2.capture_array()
