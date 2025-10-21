@@ -66,10 +66,9 @@ class MeasureState(State):
 
     # Status variables
     is_measuring: bool = False
+    is_previewing: bool = False
     camera_ok: bool = False
     joint_found: bool = False
-    camera_error: str = ""
-    joint_error: str = ""
     countdown: int = 0
     current_angle: float = 0.0
     show_results: bool = False
@@ -110,25 +109,21 @@ class MeasureState(State):
         _, buffer = cv2.imencode('.jpg', frame)
         self.live_frame = base64.b64encode(buffer).decode('utf-8')
 
-    async def on_page_load(self):
-        """Run hardware checks and start the live preview loop."""
-        self.camera_error = "Checking for camera..."
+    async def start_preview(self):
+        """Initialize camera and start the preview loop."""
         self.camera_ok = initialize_camera()
         if not self.camera_ok:
-            self.camera_error = "Camera not detected."
             return
-        self.camera_error = ""
-        return self.live_pose_preview
-
-    async def live_pose_preview(self):
-        """Continuously stream camera frames for live preview."""
-        while not self.is_measuring:
+        
+        self.is_previewing = True
+        while self.is_previewing and not self.is_measuring:
             if picam2 is None: return
             frame = picam2.capture_array()
             self._process_frame(frame)
-            await asyncio.sleep(0.05) # ~20 FPS
+            await asyncio.sleep(0.05)
 
     async def start_measurement(self):
+        self.is_previewing = False
         self.is_measuring = True
         self.show_results = False
         self.countdown = self.duration
@@ -207,6 +202,7 @@ def measure_page() -> rx.Component:
         ),
         rx.cond(
             MeasureState.is_measuring,
+            # Active Measurement View
             rx.vstack(
                 rx.heading("Measuring...", size="8"),
                 rx.text(f"{MeasureState.joint}: {MeasureState.exercise}", size="5", color_scheme="gray"),
@@ -214,6 +210,7 @@ def measure_page() -> rx.Component:
                 rx.hstack(stat_card("Time Left", f"{MeasureState.countdown}s"), stat_card("Current Angle", f"{MeasureState.formatted_current_angle}°"), spacing="4", width="100%"),
                 align="center", justify="center", height="100vh",
             ),
+            # Setup Form View
             rx.vstack(
                 rx.heading("New Measurement", size="8"),
                 rx.card(
@@ -228,16 +225,15 @@ def measure_page() -> rx.Component:
                     ),
                     width="100%", max_width="500px",
                 ),
-                rx.vstack(
-                    rx.cond(
-                        MeasureState.camera_ok,
-                        rx.vstack(
-                            rx.image(src=f"data:image/jpeg;base64,{MeasureState.live_frame}", width="100%", height="auto"),
-                            stat_card("Live Angle", f"{MeasureState.formatted_current_angle}°"),
-                        ),
-                        rx.callout(MeasureState.camera_error, icon="triangle_alert", color_scheme="orange", variant="soft"),
+                rx.cond(
+                    MeasureState.is_previewing,
+                    rx.vstack(
+                        rx.image(src=f"data:image/jpeg;base64,{MeasureState.live_frame}", width="100%", height="auto", border="1px solid #4A5568", border_radius="var(--radius-3)"),
+                        stat_card("Live Angle", f"{MeasureState.formatted_current_angle}°"),
+                        spacing="4",
+                        padding_top="1em", width="100%", max_width="500px",
                     ),
-                    padding_top="1em", width="100%", max_width="500px",
+                    rx.button(rx.hstack(rx.icon("camera"), rx.text("Start Camera Preview")), on_click=MeasureState.start_preview, size="3", high_contrast=True, margin_top="1em"),
                 ),
                 rx.hstack(
                     rx.link(rx.button("Back", variant="soft"), href="/"),
@@ -247,13 +243,11 @@ def measure_page() -> rx.Component:
                 align="center", justify="center", height="100vh",
             ),
         ),
-        on_mount=MeasureState.on_page_load
     )
 
 def history_page() -> rx.Component:
     return rx.vstack(
         rx.heading("History", size="8"),
-        # UI Simplified until foreach is resolved
         rx.link(rx.button("Back", variant="soft"), href="/"),
         align="center", spacing="4", padding_top="2em", height="100vh",
     )
