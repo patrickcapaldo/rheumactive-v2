@@ -3,30 +3,54 @@
 This directory contains automated installation scripts for setting up the Hailo AI software stack on Raspberry Pi 5.
 It also includes the RheumActive web application, built with Flask, for real-time pose estimation.
 
+## Table of Contents
+- [Quick Start](#quick-start)
+  - [First Time Developer](#first-time-developer)
+  - [First Time User](#first-time-user)
+  - [Returning Developer](#returning-developer)
+  - [Returning User](#returning-user)
+- [Project Architecture (Web Application)](#project-architecture-web-application)
+- [Running the Web Application](#running-the-web-application)
+- [Available Make Targets](#available-make-targets)
+- [Individual Scripts](#individual-scripts)
+- [Installation Workflow](#installation-workflow)
+- [Marker Files](#marker-files)
+- [Troubleshooting](#troubleshooting)
+- [Prerequisites](#prerequisites)
+- [Manual Installation](#manual-installation)
+- [Getting Help](#getting-help)
+
 ## Quick Start
 
-1.  **Download required files** from [Hailo Developer Zone](https://hailo.ai/developer-zone/software-downloads/) to `~/Downloads/`:
+This section provides tailored instructions for different user types to get RheumActive v2 up and running.
+
+### First Time Developer
+
+This guide is for developers setting up the project from scratch, including hardware and software installation.
+
+1.  **Prerequisites**: Ensure all [Prerequisites](#prerequisites) are met.
+2.  **Download required files** from [Hailo Developer Zone](https://hailo.ai/developer-zone/software-downloads/) to `~/Downloads/`:
     -   `hailort_4.23.0_arm64.deb`
     -   `hailort-pcie-driver_4.23.0_all.deb`
 
-2.  **Run the pre-reboot hardware installation**:
+3.  **Run the pre-reboot hardware installation** (this will check your system and install HailoRT and the PCIe driver):
     ```bash
     cd ~/rheumactive-v2
     make full-install
     ```
 
-3.  **Reboot your system**:
+4.  **Reboot your system**:
     ```bash
     sudo reboot
     ```
 
-4.  **After reboot, run the post-reboot installation steps**:
+5.  **After reboot, run the post-reboot installation steps** (this will verify the installation and set up device permissions):
     ```bash
     cd ~/rheumactive-v2
     make post-reboot-install
     ```
 
-5.  **Set up the Web Application environment**:
+6.  **Set up the Web Application environment**:
     ```bash
     cd ~/rheumactive-v2/app
     python3 -m venv .venv
@@ -35,7 +59,91 @@ It also includes the RheumActive web application, built with Flask, for real-tim
     ```
     *(Ensure `libcap-dev` is installed on your system: `sudo apt-get install libcap-dev`)*
 
-6.  **Run the Web Application**:
+7.  **Run the Web Application**:
+    Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
+
+### First Time User
+
+This guide is for users who want to get the application running with minimal interaction, assuming a fresh system.
+
+1.  **Prerequisites**: Ensure all [Prerequisites](#prerequisites) are met.
+2.  **Download required files** from [Hailo Developer Zone](https://hailo.ai/developer-zone/software-downloads/) to `~/Downloads/`:
+    -   `hailort_4.23.0_arm64.deb`
+    -   `hailort-pcie-driver_4.23.0_all.deb`
+
+3.  **Run the pre-reboot hardware installation**:
+    ```bash
+    cd ~/rheumactive-v2
+    make full-install
+    ```
+
+4.  **Reboot your system**:
+    ```bash
+    sudo reboot
+    ```
+
+5.  **After reboot, run the post-reboot installation steps**:
+    ```bash
+    cd ~/rheumactive-v2
+    make post-reboot-install
+    ```
+
+6.  **Set up the Web Application environment**:
+    ```bash
+    cd ~/rheumactive-v2/app
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    ```
+    *(Ensure `libcap-dev` is installed on your system: `sudo apt-get install libcap-dev`)*
+
+7.  **Run the Web Application**:
+    Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
+
+### Returning Developer
+
+This guide is for developers who have previously set up the project and want to quickly get back to development.
+
+1.  **Navigate to the project directory**:
+    ```bash
+    cd ~/rheumactive-v2
+    ```
+
+2.  **Ensure installation markers are cleared (if you want to re-run any installation steps)**:
+    ```bash
+    make clean
+    ```
+    *(Only run `make clean` if you intend to re-run installation steps. Otherwise, skip this.)*
+
+3.  **If you need to re-run hardware installation (e.g., after OS update or driver issues)**:
+    *   Run `make full-install`
+    *   `sudo reboot`
+    *   `make post-reboot-install`
+
+4.  **Set up and activate the Web Application environment**:
+    ```bash
+    cd ~/rheumactive-v2/app
+    source .venv/bin/activate
+    ```
+
+5.  **Run the Web Application**:
+    Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
+
+### Returning User
+
+This guide is for users who have previously set up the application and just want to run it again.
+
+1.  **Navigate to the web application directory**:
+    ```bash
+    cd ~/rheumactive-v2/app
+    ```
+
+2.  **Activate the virtual environment**:
+    ```bash
+    source .venv/bin/activate
+    ```
+
+3.  **Run the Web Application**:
     Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
 
 ## Project Architecture (Web Application)
