@@ -75,6 +75,9 @@ def draw_pose(frame, keypoints_with_scores, confidence_threshold=0.5):
             p2 = (int(keypoints_with_scores[p2_idx][0]), int(keypoints_with_scores[p2_idx][1]))
             cv2.line(frame, p1, p2, (255, 0, 0), 2)
 
+import sys
+from hailo_apps.hailo_app_python.core.common.core import get_default_parser
+
 # --- GStreamer Callback ---
 def app_callback(pad, info, user_data):
     global sock
@@ -99,7 +102,7 @@ def app_callback(pad, info, user_data):
             if len(landmarks) != 0:
                 points = landmarks[0].get_points()
                 bbox = detection.get_bbox()
-                for i in range(points.size()):
+                for i in range(len(points)):
                     x = int((points[i].x() * bbox.width() + bbox.xmin()) * width)
                     y = int((points[i].y() * bbox.height() + bbox.ymin()) * height)
                     # Assuming the model provides confidence, if not, we default to 1.0
@@ -157,7 +160,11 @@ def main():
         user_data = user_app_callback_class()
         user_data.use_frame = True # We need the frame for drawing
 
-        app = GStreamerPoseEstimationApp(app_callback, user_data)
+        # Get default parser and set input to rpi
+        parser = get_default_parser()
+        sys.argv.extend(['--input', 'rpi'])
+
+        app = GStreamerPoseEstimationApp(app_callback, user_data, parser=parser)
         app.run()
 
     except ConnectionRefusedError:
