@@ -18,6 +18,26 @@ It also includes the RheumActive web application, built with Flask, for real-tim
 - [Troubleshooting](#troubleshooting)
 - [Prerequisites](#prerequisites)
 - [Manual Installation](#manual-installation)
+- [Common Questions](#common-questions)
+- [Success Indicators](#success-indicators)
+- [Installation Time Estimate](#installation-time-estimate)
+- [Getting Help](#getting-help)
+
+## Table of Contents
+- [Quick Start](#quick-start)
+  - [First Time Developer](#first-time-developer)
+  - [First Time User](#first-time-user)
+  - [Returning Developer](#returning-developer)
+  - [Returning User](#returning-user)
+- [Project Architecture (Web Application)](#project-architecture-web-application)
+- [Running the Web Application](#running-the-web-application)
+- [Available Make Targets](#available-make-targets)
+- [Individual Scripts](#individual-scripts)
+- [Installation Workflow](#installation-workflow)
+- [Marker Files](#marker-files)
+- [Troubleshooting](#troubleshooting)
+- [Prerequisites](#prerequisites)
+- [Manual Installation](#manual-installation)
 - [Getting Help](#getting-help)
 
 ## Quick Start
@@ -38,6 +58,20 @@ This guide is for developers setting up the project from scratch, including hard
     cd ~/rheumactive-v2
     make full-install
     ```
+    **What You'll See**:
+    The installation will show progress like this:
+    ```
+    === System Requirements Check ===
+    Checking OS version... ✓ Bookworm detected
+    Checking architecture... ✓ ARM64 detected
+    Checking hardware model... ✓ Raspberry Pi 5 detected
+    ...
+
+    === Installing HailoRT Runtime ===
+    Installing: hailort_4.23.0_arm64.deb
+    ✓ HailoRT 4.23.0 installed successfully
+    ...
+    ```
 
 4.  **Reboot your system**:
     ```bash
@@ -48,6 +82,15 @@ This guide is for developers setting up the project from scratch, including hard
     ```bash
     cd ~/rheumactive-v2
     make post-reboot-install
+    ```
+    You should see:
+    ```
+    === Verifying Hailo Installation ===
+    Checking HailoRT package... ✓ Installed (version: 4.23.0)
+    Checking PCIe driver package... ✓ Installed (version: 4.23.0)
+    Checking kernel module... ✓ Loaded
+    ...
+    === ✓ Installation verified successfully ===
     ```
 
 6.  **Set up the Web Application environment**:
@@ -61,6 +104,22 @@ This guide is for developers setting up the project from scratch, including hard
 
 7.  **Run the Web Application**:
     Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
+
+#### Next Steps for Developers
+
+After successful installation and initial setup:
+
+1.  **Explore the application**:
+    *   Camera feed should show pose keypoints in real-time
+    *   Try different poses and movements
+
+2.  **Review documentation**:
+    *   Full setup guide: `docs/01-initial-setup.md`
+    *   Setup scripts: `scripts/setup/README.md`
+
+3.  **Start developing**:
+    *   Application code will go in `src/`
+    *   See project roadmap for features
 
 ### First Time User
 
@@ -382,12 +441,17 @@ make post-reboot-install
 
 ## Prerequisites
 
-Before running any installation:
-1. Raspberry Pi OS (Legacy, 64-bit) Bookworm installed
-2. AI HAT+ properly connected
-3. System updated: `sudo apt update && sudo apt full-upgrade -y`
-4. PCIe Gen3 enabled: `sudo raspi-config` → Advanced Options → PCIe Speed
-5. Downloaded `.deb` files in `~/Downloads/`
+Before starting, ensure you have:
+
+- [ ] Raspberry Pi 5 (4GB or 8GB)
+- [ ] Hailo AI HAT+ 13 TOPS installed
+- [ ] Raspberry Pi Camera Module 3 connected
+- [ ] Raspberry Pi OS (Legacy, 64-bit) **Bookworm** installed
+- [ ] Active Cooler installed
+- [ ] PCIe Gen3 enabled (via `sudo raspi-config`)
+- [ ] System updated (`sudo apt update && sudo apt full-upgrade -y`)
+- [ ] Internet connection active
+- [ ] Monitor, keyboard, mouse connected
 
 ## Manual Installation
 
@@ -413,6 +477,45 @@ sudo reboot
 
 # 7. Log out and back in (or run 'newgrp hailo')
 ```
+
+## Installation Time Estimate
+
+| Step | Duration |
+|------|----------|
+| Download .deb files | 2-3 min |
+| Clone repository | < 1 min |
+| Run full-install | 5-10 min |
+| Reboot | 1-2 min |
+| Verify + permissions | 1 min |
+| **Total** | **10-15 minutes** |
+
+## Success Indicators
+
+You know it's working when:
+- ✓ `make verify-install` shows all green checkmarks
+- ✓ `hailortcli scan` shows `[-] Device: 0001:01:00.0`
+- ✓ `./scripts/run_pose_detection.sh` shows camera feed with pose overlays
+- ✓ No red error messages
+
+## Common Questions
+
+**Q: Do I need to download anything else?**  
+A: No, just the two `.deb` files. Everything else is handled by apt.
+
+**Q: Can I use Raspberry Pi OS Trixie?**  
+A: No, Hailo software requires Bookworm. Use the Legacy version.
+
+**Q: How long does installation take?**  
+A: 5-10 minutes for installation, plus a reboot.
+
+**Q: What if I already installed hailo-all via apt?**  
+A: Run `make clean` and start fresh. The manual `.deb` approach is more reliable.
+
+**Q: Can I re-run installation?**  
+A: Yes! `make clean` removes markers and lets you start over.
+
+**Q: Why do I need to reboot?**  
+A: The PCIe driver is a kernel module that requires a reboot to load.
 
 ## Getting Help
 
