@@ -86,6 +86,7 @@ def app_callback(pad, info, user_data):
         return Gst.PadProbeReturn.OK
 
     format, width, height = get_caps_from_pad(pad)
+    print(f"app_callback: format={format}, width={width}, height={height}") # DEBUG
     frame = None
     if user_data.use_frame and format is not None and width is not None and height is not None:
         frame = get_numpy_from_buffer(buffer, format, width, height)
