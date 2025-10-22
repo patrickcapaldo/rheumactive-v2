@@ -1,23 +1,56 @@
 #!/usr/bin/env python3
-
-import cv2
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst, GLib
+import os
 import numpy as np
-import time
+import cv2
+import hailo
+import socket
 import json
 import base64
-import socket
-from picamera2 import Picamera2
+from pathlib import Path
+
+from hailo_apps.hailo_app_python.core.common.buffer_utils import get_caps_from_pad, get_numpy_from_buffer
+from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import app_callback_class
+from hailo_apps.hailo_app_python.apps.pose_estimation.pose_estimation_pipeline import GStreamerPoseEstimationApp
 
 # --- Configuration ---
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5001
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
-TCP_IP = '127.0.0.1'  # Loopback address for local communication
-TCP_PORT = 5001       # Port for the camera streamer
 
-# Keypoint indices for left elbow angle (YOLOv8-Pose)
-LEFT_SHOULDER_INDEX = 5
-LEFT_ELBOW_INDEX = 7
-LEFT_WRIST_INDEX = 9
+# --- Globals ---
+sock = None
+
+# --- COCO Keypoints and Skeleton ---
+KEYPOINTS = {
+    'nose': 0, 'left_eye': 1, 'right_eye': 2, 'left_ear': 3, 'right_ear': 4,
+    'left_shoulder': 5, 'right_shoulder': 6, 'left_elbow': 7, 'right_elbow': 8,
+    'left_wrist': 9, 'right_wrist': 10, 'left_hip': 11, 'right_hip': 12,
+    'left_knee': 13, 'right_knee': 14, 'left_ankle': 15, 'right_ankle': 16,
+}
+
+SKELETON = [
+    (KEYPOINTS['left_shoulder'], KEYPOINTS['right_shoulder']),
+    (KEYPOINTS['left_hip'], KEYPOINTS['right_hip']),
+    (KEYPOINTS['left_shoulder'], KEYPOINTS['left_hip']),
+    (KEYPOINTS['right_shoulder'], KEYPOINTS['right_hip']),
+    (KEYPOINTS['left_shoulder'], KEYPOINTS['left_elbow']),
+    (KEYPOINTS['right_shoulder'], KEYPOINTS['right_elbow']),
+    (KEYPOINTS['left_elbow'], KEYPOINTS['left_wrist']),
+    (KEYPOINTS['right_elbow'], KEYPOINTS['right_wrist']),
+    (KEYPOINTS['left_hip'], KEYPOINTS['left_knee']),
+    (KEYPOINTS['right_hip'], KEYPOINTS['right_knee']),
+    (KEYPOINTS['left_knee'], KEYPOINTS['left_ankle']),
+    (KEYPOINTS['right_knee'], KEYPOINTS['right_ankle']),
+]
+
+# --- User-defined Callback Class ---
+class user_app_callback_class(app_callback_class):
+    def __init__(self):
+        super().__init__()
 
 # --- Helper Functions ---
 def get_angle(p1, p2, p3):
@@ -29,72 +62,112 @@ def get_angle(p1, p2, p3):
     cosine_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
     return np.degrees(np.arccos(cosine_angle))
 
-def draw_pose(frame, keypoints, confidence_threshold=0.5):
-    for i, point in enumerate(keypoints):
+def draw_pose(frame, keypoints_with_scores, confidence_threshold=0.5):
+    # Draw keypoints
+    for i, point in enumerate(keypoints_with_scores):
         if point[2] > confidence_threshold:
             cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 255, 0), -1)
 
-def _process_frame_and_get_data(frame: np.ndarray):
-    # MOCK HAIlo INFERENCE
-    mock_keypoints = np.zeros((17, 3), dtype=np.float32)
-    mock_keypoints[LEFT_SHOULDER_INDEX] = [CAMERA_WIDTH * 0.3, CAMERA_HEIGHT * 0.4, 0.95]
-    mock_keypoints[LEFT_ELBOW_INDEX] = [CAMERA_WIDTH * 0.5, CAMERA_HEIGHT * 0.5, 0.95]
-    mock_keypoints[LEFT_WRIST_INDEX] = [CAMERA_WIDTH * 0.4, CAMERA_HEIGHT * 0.7, 0.95]
+    # Draw skeleton
+    for p1_idx, p2_idx in SKELETON:
+        if keypoints_with_scores[p1_idx][2] > confidence_threshold and keypoints_with_scores[p2_idx][2] > confidence_threshold:
+            p1 = (int(keypoints_with_scores[p1_idx][0]), int(keypoints_with_scores[p1_idx][1]))
+            p2 = (int(keypoints_with_scores[p2_idx][0]), int(keypoints_with_scores[p2_idx][1]))
+            cv2.line(frame, p1, p2, (255, 0, 0), 2)
 
-    p1, p2, p3 = mock_keypoints[LEFT_SHOULDER_INDEX, :2], mock_keypoints[LEFT_ELBOW_INDEX, :2], mock_keypoints[LEFT_WRIST_INDEX, :2]
-    current_angle = get_angle(p1, p2, p3)
+# --- GStreamer Callback ---
+def app_callback(pad, info, user_data):
+    global sock
+    buffer = info.get_buffer()
+    if buffer is None:
+        return Gst.PadProbeReturn.OK
 
-    draw_pose(frame, mock_keypoints)
-    cv2.putText(frame, f"Angle: {current_angle:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    format, width, height = get_caps_from_pad(pad)
+    frame = None
+    if user_data.use_frame and format is not None and width is not None and height is not None:
+        frame = get_numpy_from_buffer(buffer, format, width, height)
 
-    _, buffer = cv2.imencode('.jpg', frame)
-    encoded_frame = base64.b64encode(buffer).decode('utf-8')
+    roi = hailo.get_roi_from_buffer(buffer)
+    detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
 
-    return {
-        "image": encoded_frame,
-        "angle": round(current_angle, 1)
-    }
+    current_angle = 0.0
+    all_keypoints = np.zeros((17, 3), dtype=np.float32)
+
+    for detection in detections:
+        if detection.get_label() == "person":
+            landmarks = detection.get_objects_typed(hailo.HAILO_LANDMARKS)
+            if len(landmarks) != 0:
+                points = landmarks[0].get_points()
+                bbox = detection.get_bbox()
+                for i in range(points.size()):
+                    x = int((points[i].x() * bbox.width() + bbox.xmin()) * width)
+                    y = int((points[i].y() * bbox.height() + bbox.ymin()) * height)
+                    # Assuming the model provides confidence, if not, we default to 1.0
+                    confidence = points[i].confidence() if hasattr(points[i], 'confidence') else 1.0
+                    all_keypoints[i] = [x, y, confidence]
+
+                # Calculate angle (example: left elbow)
+                p1 = all_keypoints[KEYPOINTS['left_shoulder'], :2]
+                p2 = all_keypoints[KEYPOINTS['left_elbow'], :2]
+                p3 = all_keypoints[KEYPOINTS['left_wrist'], :2]
+                current_angle = get_angle(p1, p2, p3)
+
+                if frame is not None:
+                    draw_pose(frame, all_keypoints)
+                    cv2.putText(frame, f"Angle: {current_angle:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+    if frame is not None:
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        _, buffer = cv2.imencode('.jpg', frame)
+        encoded_frame = base64.b64encode(buffer).decode('utf-8')
+
+        data = {
+            "image": encoded_frame,
+            "angle": round(current_angle, 1)
+        }
+        json_data = json.dumps(data)
+        
+        try:
+            message_length = len(json_data.encode('utf-8'))
+            sock.sendall(message_length.to_bytes(4, 'big'))
+            sock.sendall(json_data.encode('utf-8'))
+        except Exception as e:
+            print(f"Error sending data: {e}")
+            return Gst.PadProbeReturn.DROP # Stop pipeline if socket fails
+
+    return Gst.PadProbeReturn.OK
 
 # --- Main Streamer Logic ---
 def main():
+    global sock
     print(f"Camera Streamer starting. Connecting to {TCP_IP}:{TCP_PORT}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.connect((TCP_IP, TCP_PORT))
         print("Connected to Flask app.")
 
-        print("--- Initializing Camera ---")
-        picam2 = Picamera2()
-        config = picam2.create_preview_configuration(main={"size": (CAMERA_WIDTH, CAMERA_HEIGHT)})
-        picam2.configure(config)
-        picam2.start()
-        time.sleep(2)  # Allow camera to warm up
-        print("Camera initialized successfully.")
+        project_root = Path(__file__).resolve().parent.parent
+        env_file = project_root / ".env"
+        if env_file.exists():
+            os.environ["HAILO_ENV_FILE"] = str(env_file)
+            print(f"Using environment file: {env_file}")
+        else:
+            print("Warning: .env file not found. Hailo App might not run correctly.")
 
-        while True:
-            frame = picam2.capture_array()
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) # Convert for OpenCV
-            
-            data = _process_frame_and_get_data(frame)
-            json_data = json.dumps(data)
-            
-            # Send length of message first, then message itself
-            message_length = len(json_data.encode('utf-8'))
-            sock.sendall(message_length.to_bytes(4, 'big')) # 4 bytes for length
-            sock.sendall(json_data.encode('utf-8'))
-            
-            time.sleep(0.05) # ~20 FPS
+        user_data = user_app_callback_class()
+        user_data.use_frame = True # We need the frame for drawing
+
+        app = GStreamerPoseEstimationApp(app_callback, user_data)
+        app.run()
 
     except ConnectionRefusedError:
         print(f"ERROR: Connection to Flask app refused. Is Flask app running and listening on {TCP_IP}:{TCP_PORT}?")
     except Exception as e:
         print(f"An error occurred in camera streamer: {e}")
     finally:
-        if 'picam2' in locals() and picam2:
-            picam2.stop()
-            print("Camera stopped.")
-        sock.close()
-        print("Streamer socket closed.")
+        if sock:
+            sock.close()
+            print("Streamer socket closed.")
 
 if __name__ == '__main__':
     main()
