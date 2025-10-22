@@ -95,14 +95,6 @@ def angle_feed():
 
 # --- App Lifecycle ---
 
-@app.before_first_request
-def before_first_request():
-    # Start the socket listener in a separate thread
-    listener_thread = threading.Thread(target=socket_listener, daemon=True)
-    listener_thread.start()
-    # Give the listener a moment to bind
-    time.sleep(1)
-
 @app.teardown_appcontext
 def teardown_appcontext(exception=None):
     # No subprocess to terminate here
@@ -111,4 +103,11 @@ def teardown_appcontext(exception=None):
 if __name__ == '__main__':
     # Ensure logs directory exists
     os.makedirs(LOGS_DIR, exist_ok=True)
+
+    # Start the socket listener in a separate thread
+    listener_thread = threading.Thread(target=socket_listener, daemon=True)
+    listener_thread.start()
+    # Give the listener a moment to bind
+    time.sleep(1)
+    
     app.run(host='0.0.0.0', port=5000, debug=False)
