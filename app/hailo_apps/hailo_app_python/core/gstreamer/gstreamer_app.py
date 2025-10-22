@@ -400,7 +400,7 @@ def picamera_thread(pipeline, video_width, video_height, video_format, picamera_
         appsrc.set_property(
             "caps",
             Gst.Caps.from_string(
-                f"video/x-raw, format=RGB, width={lores_size[0]}, height={lores_size[1]}, framerate=30/1"
+                f"video/x-raw, format=I420, width={lores_size[0]}, height={lores_size[1]}, framerate=30/1"
             )
         )
 
