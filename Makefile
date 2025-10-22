@@ -31,13 +31,15 @@ help:
 	@echo "$(GREEN)RheumActive v2 - Automated Installation$(NC)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  $(YELLOW)make check-system$(NC)      - Verify system requirements (OS version, hardware)"
-	@echo "  $(YELLOW)make install-hailo$(NC)     - Install Hailo software (requires .deb files in ~/Downloads)"
-	@echo "  $(YELLOW)make verify-install$(NC)    - Verify Hailo installation and firmware"
-	@echo "  $(YELLOW)make setup-permissions$(NC) - Configure device permissions"
-	@echo "  $(YELLOW)make test-camera$(NC)        - Run a quick camera test"
-	@echo "  $(YELLOW)make full-install$(NC)      - Run complete installation (check + install + verify + permissions)"
-	@echo "  $(YELLOW)make clean$(NC)              - Remove installation markers (to re-run steps)"
+	@echo "  $(YELLOW)make check-system$(NC)         - Verify system requirements (OS version, hardware)"
+	@echo "  $(YELLOW)make install-hailo$(NC)        - Install Hailo software (requires .deb files in ~/Downloads)"
+	@echo "  $(YELLOW)make verify-install$(NC)       - Verify Hailo installation and firmware"
+	@echo "  $(YELLOW)make setup-permissions$(NC)    - Configure device permissions"
+	@echo "  $(YELLOW)make test-camera$(NC)           - Run a quick camera test"
+	@echo "  $(YELLOW)make full-install$(NC)         - Run pre-reboot installation steps (check + install Hailo)"
+	@echo "  $(YELLOW)make post-reboot-install$(NC)  - Run post-reboot installation steps (verify + permissions)"
+	@echo "  $(YELLOW)make clean$(NC)                 - Remove installation markers (to re-run steps)"
+	@echo "  $(YELLOW)make mark-reboot-done$(NC)     - Clear reboot marker after rebooting"
 	@echo ""
 	@echo "$(RED)IMPORTANT:$(NC) Before running 'make install-hailo', download these files"
 	@echo "from https://hailo.ai/developer-zone/software-downloads/ to ~/Downloads/:"
@@ -45,23 +47,28 @@ help:
 	@echo "  - $(DRIVER_DEB)"
 
 # Full installation workflow
-full-install: check-system install-hailo verify-install setup-permissions
-	@echo "$(GREEN)✓ Full installation complete!$(NC)"
+full-install: check-system install-hailo
+	@echo "$(GREEN)✓ Pre-reboot installation steps complete!$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Next steps:$(NC)"
 	@echo "  1. Reboot your system: sudo reboot"
-	@echo "  2. After reboot, run: make verify-install"
-	@echo "  3. Test pose detection: ./scripts/run_pose_detection.sh"
+	@echo "  2. After reboot, run: make post-reboot-install"
+
+post-reboot-install: verify-install setup-permissions
+	@echo "$(GREEN)✓ Post-reboot installation steps complete!$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Next steps:$(NC)"
+	@echo "  1. Test pose detection: ./scripts/run_pose_detection.sh"
 
 # System requirements check
 check-system: $(SYSTEM_CHECK_MARKER)
 
 $(SYSTEM_CHECK_MARKER):
 	@echo "$(YELLOW)Setting script permissions...$(NC)"
-	@chmod +x scripts/setup/*.sh scripts/*.sh
+	@chmod +x setup/*.sh scripts/run_pose_detection.sh
 	@echo "$(YELLOW)Checking system requirements...$(NC)"
 	@mkdir -p $(MARKER_DIR)
-	@./scripts/setup/01_check_system.sh
+	@./setup/01_check_system.sh
 	@touch $(SYSTEM_CHECK_MARKER)
 	@echo "$(GREEN)✓ System check passed$(NC)"
 
@@ -70,17 +77,17 @@ install-hailo: check-system $(HAILO_INSTALL_MARKER) $(DRIVER_INSTALL_MARKER)
 
 $(HAILO_INSTALL_MARKER):
 	@echo "$(YELLOW)Installing HailoRT runtime...$(NC)"
-	@./scripts/setup/02_install_hailort.sh $(DOWNLOADS_DIR)/$(HAILORT_DEB)
+	@./setup/02_install_hailort.sh $(DOWNLOADS_DIR)/$(HAILORT_DEB)
 	@touch $(HAILO_INSTALL_MARKER)
 	@echo "$(GREEN)✓ HailoRT runtime installed$(NC)"
 
 $(DRIVER_INSTALL_MARKER): $(HAILO_INSTALL_MARKER)
 	@echo "$(YELLOW)Installing PCIe driver...$(NC)"
-	@./scripts/setup/03_install_driver.sh $(DOWNLOADS_DIR)/$(DRIVER_DEB)
+	@./setup/03_install_driver.sh $(DOWNLOADS_DIR)/$(DRIVER_DEB)
 	@touch $(DRIVER_INSTALL_MARKER)
 	@touch $(REBOOT_MARKER)
 	@echo "$(GREEN)✓ PCIe driver installed$(NC)"
-	@echo "$(RED)⚠ REBOOT REQUIRED$(NC) - Run 'sudo reboot' now, then run 'make verify-install'"
+	@echo "$(RED)⚠ REBOOT REQUIRED$(NC) - Run 'sudo reboot' now, then run 'make post-reboot-install'"
 
 # Verification
 verify-install: $(DRIVER_INSTALL_MARKER)
@@ -90,7 +97,7 @@ verify-install: $(DRIVER_INSTALL_MARKER)
 		exit 1; \
 	fi
 	@echo "$(YELLOW)Verifying Hailo installation...$(NC)"
-	@./scripts/setup/04_verify_install.sh
+	@./setup/04_verify_install.sh
 	@echo "$(GREEN)✓ Installation verified successfully$(NC)"
 
 # Permission setup
@@ -98,7 +105,7 @@ setup-permissions: $(PERMISSIONS_MARKER)
 
 $(PERMISSIONS_MARKER):
 	@echo "$(YELLOW)Setting up device permissions...$(NC)"
-	@./scripts/setup/05_setup_permissions.sh
+	@./setup/05_setup_permissions.sh
 	@touch $(PERMISSIONS_MARKER)
 	@echo "$(GREEN)✓ Permissions configured$(NC)"
 	@echo "$(YELLOW)Note: You may need to log out and back in for group changes to take effect$(NC)"
