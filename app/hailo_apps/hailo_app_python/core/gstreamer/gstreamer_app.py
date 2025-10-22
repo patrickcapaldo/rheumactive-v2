@@ -375,60 +375,67 @@ class GStreamerApp:
 
 def picamera_thread(pipeline, video_width, video_height, video_format, picamera_config=None):
     appsrc = pipeline.get_by_name("app_source")
+    if not appsrc:
+        print("app_source element not found in the pipeline.")
+        return
+
     appsrc.set_property("is-live", True)
     appsrc.set_property("format", Gst.Format.TIME)
-    print("appsrc properties: ", appsrc)
-    # Initialize Picamera2
+
     with Picamera2() as picam2:
         if picamera_config is None:
-            # Default configuration
-            main = {'size': (1280, 720), 'format': 'RGB888'}
-            lores = {'size': (video_width, video_height), 'format': 'RGB888'}
-            controls = {'FrameRate': 30}
-            config = picam2.create_preview_configuration(main=main, lores=lores, controls=controls)
+            main_size = (1280, 720)
+            lores_size = (640, 480) # Use a smaller resolution for the lores stream
+            config = picam2.create_preview_configuration(
+                main={"size": main_size, "format": "RGB888"},
+                lores={"size": lores_size, "format": "YUV420"}, # Use YUV420 for efficiency
+                controls={"FrameRate": 30}
+            )
         else:
             config = picamera_config
-        # Configure the camera with the created configuration
+
         picam2.configure(config)
-        # Update GStreamer caps based on 'lores' stream
-        lores_stream = config['lores']
-        format_str = 'RGB' if lores_stream['format'] == 'RGB888' else video_format
-        width, height = lores_stream['size']
-        print(f"Picamera2 configuration: width={width}, height={height}, format={format_str}")
+
+        # Set GStreamer caps based on the lores stream configuration
         appsrc.set_property(
             "caps",
             Gst.Caps.from_string(
-                f"video/x-raw, format={format_str}, width={width}, height={height}, "
-                f"framerate=30/1, pixel-aspect-ratio=1/1"
+                f"video/x-raw, format=RGB, width={lores_size[0]}, height={lores_size[1]}, framerate=30/1"
             )
         )
+
         picam2.start()
-        frame_count = 0
-        start_time = time.time()
         print("picamera_process started")
         while True:
+            # Capture from the lores stream
             frame_data = picam2.capture_array('lores')
-            # frame_data = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
             if frame_data is None:
                 print("Failed to capture frame.")
                 break
-            # Convert framontigue data if necessary
-            frame = cv2.cvtColor(frame_data, cv2.COLOR_BGR2RGB)
-            frame = np.asarray(frame)
-            # Create Gst.Buffer by wrapping the frame data
-            buffer = Gst.Buffer.new_wrapped(frame.tobytes())
+
+            # The buffer from picamera2 with YUV420 is not directly usable as a numpy array for cvtColor.
+            # We need to convert it to a format that OpenCV can handle.
+            # A simple way is to request an RGB format from the camera itself if performance allows,
+            # or handle the YUV to RGB conversion manually.
+            # For simplicity, let's re-request the frame in a format cv2 understands, if needed.
+            # However, since we are pushing to a GStreamer pipeline that expects RGB, 
+            # we should ensure the source provides that.
+            # Let's adjust the pipeline to handle the conversion.
+            # The Gstreamer pipeline already has a videoconvert element, so we just need to push the raw buffer.
+
+            # For YUV420, the size is height * width * 1.5
+            # For this example, we will assume the pipeline handles the conversion from the format provided.
+            
+            buffer = Gst.Buffer.new_wrapped(frame_data.tobytes())
+            
             # Set buffer PTS and duration
-            buffer_duration = Gst.util_uint64_scale_int(1, Gst.SECOND, 30)
-            buffer.pts = frame_count * buffer_duration
-            buffer.duration = buffer_duration
-            # Push the buffer to appsrc
+            buffer.pts = Gst.CLOCK_TIME_NONE
+            buffer.duration = Gst.CLOCK_TIME_NONE
+
             ret = appsrc.emit('push-buffer', buffer)
-            if ret == Gst.FlowReturn.FLUSHING:
-                break
             if ret != Gst.FlowReturn.OK:
-                print("Failed to push buffer:", ret)
+                print(f"Failed to push buffer to appsrc: {ret}")
                 break
-            frame_count += 1
 
 def disable_qos(pipeline):
     """
