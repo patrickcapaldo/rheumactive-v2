@@ -82,11 +82,14 @@ def video_feed():
     def generate():
         while True:
             if latest_frame_data["image"]:
+                print("Sending frame to browser!") # DEBUG
                 frame = base64.b64decode(latest_frame_data["image"])
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n'
                        b'Content-Length: ' + f'{len(frame)}'.encode() + b'\r\n\r\n' +
                        frame + b'\r\n')
+            else:
+                print("No frame data available yet.") # DEBUG
             time.sleep(0.05) # ~20 FPS
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 

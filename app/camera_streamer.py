@@ -134,6 +134,7 @@ def app_callback(pad, info, user_data):
             message_length = len(json_data.encode('utf-8'))
             sock.sendall(message_length.to_bytes(4, 'big'))
             sock.sendall(json_data.encode('utf-8'))
+            print("Sent frame to Flask app") # DEBUG
         except Exception as e:
             print(f"Error sending data: {e}")
             return Gst.PadProbeReturn.DROP # Stop pipeline if socket fails
