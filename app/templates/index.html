@@ -147,12 +147,12 @@
             </div>
 
             <div class="text-center mb-4">
-                <button id="startPreviewBtn" class="btn btn-primary btn-lg" type="button">Start Camera Preview</button>
+                <button id="togglePreviewBtn" class="btn btn-primary btn-lg" type="button">Show Camera Preview</button>
             </div>
 
             <div id="cameraPreviewSection" class="card p-3 mb-4" style="display:none;">
                 <h3 class="text-primary">Live Preview</h3>
-                <img id="videoFeed" src="/video_feed" class="img-fluid rounded mb-3" alt="Live Camera Feed">
+                <img id="videoFeed" class="img-fluid rounded mb-3" alt="Live Camera Feed">
                 <div class="d-flex justify-content-around align-items-center">
                     <div class="text-center">
                         <h4 class="text-light">Live Angle</h4>
@@ -178,9 +178,10 @@
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
-        let anglePollingInterval; // Moved to top
+        let anglePollingInterval;
         let currentView = 'mainMenu';
         const views = ['mainMenu', 'measure', 'history'];
+        let isCameraPreviewVisible = false; // New state variable
 
         function showView(viewId) {
             views.forEach(id => {
@@ -189,11 +190,19 @@
             currentView = viewId;
             updateNavLinks(viewId);
 
-            if (viewId === 'measure') {
-                // Start polling for angle when measure view is active
-                startAnglePolling();
-            } else {
-                stopAnglePolling();
+            // When leaving the measure view, ensure camera preview is hidden and polling stops
+            if (viewId !== 'measure') {
+                const cameraPreviewSection = document.getElementById('cameraPreviewSection');
+                const videoFeed = document.getElementById('videoFeed');
+                const togglePreviewBtn = document.getElementById('togglePreviewBtn');
+
+                if (isCameraPreviewVisible) {
+                    cameraPreviewSection.style.display = 'none';
+                    videoFeed.src = '';
+                    togglePreviewBtn.innerText = 'Show Camera Preview';
+                    isCameraPreviewVisible = false;
+                    stopAnglePolling();
+                }
             }
         }
 
@@ -210,7 +219,6 @@
         showView(currentView);
 
         // --- Angle Polling ---
-        // Removed from here
         function startAnglePolling() {
             if (!anglePollingInterval) {
                 anglePollingInterval = setInterval(fetchAngle, 200); // Poll every 200ms (5 times per second)
@@ -242,14 +250,24 @@
             }
         }
 
-        // --- Camera Preview Button ---
-        document.getElementById('startPreviewBtn').addEventListener('click', function() {
-            // Show the camera preview section
-            document.getElementById('cameraPreviewSection').style.display = 'block';
-            this.style.display = 'none'; // Hide the button itself
-            // The MJPEG stream starts automatically when the img src is set
-            // The Flask backend will handle starting the camera_streamer.py subprocess
-            // when the /video_feed route is first accessed.
+        // --- Camera Preview Toggle Button ---
+        document.getElementById('togglePreviewBtn').addEventListener('click', function() {
+            const cameraPreviewSection = document.getElementById('cameraPreviewSection');
+            const videoFeed = document.getElementById('videoFeed');
+
+            isCameraPreviewVisible = !isCameraPreviewVisible; // Toggle state
+
+            if (isCameraPreviewVisible) {
+                cameraPreviewSection.style.display = 'block';
+                videoFeed.src = '/video_feed'; // Start the video stream
+                this.innerText = 'Hide Camera Preview';
+                startAnglePolling(); // Start polling angles when preview is visible
+            } else {
+                cameraPreviewSection.style.display = 'none';
+                videoFeed.src = ''; // Stop the video stream
+                this.innerText = 'Show Camera Preview';
+                stopAnglePolling(); // Stop polling angles when preview is hidden
+            }
         });
 
         // --- Measurement Logic (Placeholder) ---
