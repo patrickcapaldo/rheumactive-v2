@@ -2,5 +2,4 @@ Flask
 picamera2
 opencv-python
 numpy
-hailo-tappas-core==3.31.0
-git+https://github.com/hailo-ai/hailo-apps-infra.git@25.7.0#egg=hailo-apps
+./vendor/tappas_core_python_binding-3.31.0-py3-none-any.whl
