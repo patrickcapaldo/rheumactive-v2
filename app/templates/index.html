@@ -260,6 +260,7 @@
             if (isCameraPreviewVisible) {
                 cameraPreviewSection.style.display = 'block';
                 videoFeed.src = '/video_feed'; // Start the video stream
+                console.log('Setting videoFeed.src to /video_feed'); // DEBUG
                 this.innerText = 'Hide Camera Preview';
                 startAnglePolling(); // Start polling angles when preview is visible
             } else {
