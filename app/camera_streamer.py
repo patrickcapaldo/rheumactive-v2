@@ -140,6 +140,40 @@ def app_callback(pad, info, user_data):
 
     return Gst.PadProbeReturn.OK
 
+from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_helper_pipelines import (
+    SOURCE_PIPELINE, 
+    INFERENCE_PIPELINE, 
+    INFERENCE_PIPELINE_WRAPPER, 
+    TRACKER_PIPELINE, 
+    USER_CALLBACK_PIPELINE
+)
+
+# --- Headless GStreamer App ---
+class HeadlessGStreamerPoseEstimationApp(GStreamerPoseEstimationApp):
+    def get_pipeline_string(self):
+        source_pipeline = SOURCE_PIPELINE(video_source=self.video_source,
+                                          video_width=self.video_width, video_height=self.video_height,
+                                          frame_rate=self.frame_rate, sync=self.sync)
+        infer_pipeline = INFERENCE_PIPELINE(
+            hef_path=self.hef_path,
+            post_process_so=self.post_process_so,
+            post_function_name=self.post_process_function,
+            batch_size=self.batch_size
+        )
+        infer_pipeline_wrapper = INFERENCE_PIPELINE_WRAPPER(infer_pipeline)
+        tracker_pipeline = TRACKER_PIPELINE(class_id=0)
+        user_callback_pipeline = USER_CALLBACK_PIPELINE()
+
+        pipeline_string = (
+            f'{source_pipeline} !'
+            f'{infer_pipeline_wrapper} ! '
+            f'{tracker_pipeline} ! '
+            f'{user_callback_pipeline} ! '
+            f'fakesink'
+        )
+        print(pipeline_string)
+        return pipeline_string
+
 # --- Main Streamer Logic ---
 def main():
     global sock
@@ -164,7 +198,7 @@ def main():
         parser = get_default_parser()
         sys.argv.extend(['--input', 'rpi'])
 
-        app = GStreamerPoseEstimationApp(app_callback, user_data, parser=parser)
+        app = HeadlessGStreamerPoseEstimationApp(app_callback, user_data, parser=parser)
         app.run()
 
     except ConnectionRefusedError:
