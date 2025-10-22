@@ -78,6 +78,7 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
+    print("Video feed requested!") # DEBUG
     def generate():
         while True:
             if latest_frame_data["image"]:
