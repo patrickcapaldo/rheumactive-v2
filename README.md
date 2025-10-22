@@ -9,7 +9,7 @@ It also includes the RheumActive web application, built with Flask, for real-tim
     -   `hailort_4.23.0_arm64.deb`
     -   `hailort-pcie-driver_4.23.0_all.deb`
 
-2.  **Run the full hardware installation**:
+2.  **Run the pre-reboot hardware installation**:
     ```bash
     cd ~/rheumactive-v2
     make full-install
@@ -20,11 +20,10 @@ It also includes the RheumActive web application, built with Flask, for real-tim
     sudo reboot
     ```
 
-4.  **After reboot, verify installation**:
+4.  **After reboot, run the post-reboot installation steps**:
     ```bash
     cd ~/rheumactive-v2
-    make mark-reboot-done
-    make verify-install
+    make post-reboot-install
     ```
 
 5.  **Set up the Web Application environment**:
@@ -106,7 +105,8 @@ Once both processes are running, open your web browser and navigate to **http://
 | `make verify-install` | Verify installation and firmware communication |
 | `make setup-permissions` | Configure device permissions |
 | `make test-camera` | Run a quick 5-second camera test |
-| `make full-install` | Complete installation workflow |
+| `make full-install` | Run pre-reboot installation steps (check + install Hailo) |
+| `make post-reboot-install` | Run post-reboot installation steps (verify + permissions) |
 | `make clean` | Remove installation markers (to re-run steps) |
 | `make mark-reboot-done` | Clear reboot marker after rebooting |
 
@@ -131,7 +131,7 @@ The Makefile orchestrates these scripts in the correct order:
 
 **Usage**: Called automatically by Makefile, or manually:
 ```bash
-./scripts/setup/02_install_hailort.sh ~/Downloads/hailort_4.23.0_arm64.deb
+./setup/02_install_hailort.sh ~/Downloads/hailort_4.23.0_arm64.deb
 ```
 
 ### 03_install_driver.sh
@@ -142,7 +142,7 @@ The Makefile orchestrates these scripts in the correct order:
 
 **Usage**: Called automatically by Makefile, or manually:
 ```bash
-./scripts/setup/03_install_driver.sh ~/Downloads/hailort-pcie-driver_4.23.0_all.deb
+./setup/03_install_driver.sh ~/Downloads/hailort-pcie-driver_4.23.0_all.deb
 ```
 
 **Note**: You MUST reboot after this step.
@@ -158,7 +158,7 @@ The Makefile orchestrates these scripts in the correct order:
 
 **Usage**:
 ```bash
-./scripts/setup/04_verify_install.sh
+./setup/04_verify_install.sh
 ```
 
 ### 05_setup_permissions.sh
@@ -172,7 +172,7 @@ The Makefile orchestrates these scripts in the correct order:
 **Usage**:
 ```bash
 bash
-./scripts/setup/05_setup_permissions.sh
+./setup/05_setup_permissions.sh
 ```
 
 **Note**: You may need to log out and back in after running this script.
@@ -181,13 +181,16 @@ bash
 
 The Makefile orchestrates these scripts in the correct order:
 
-### Normal Installation Flow
+### Pre-Reboot Installation Flow
 ```
 check-system
     ↓
 install-hailo
-    ↓
-verify-install (requires reboot marker clear)
+```
+
+### Post-Reboot Installation Flow
+```
+verify-install
     ↓
 setup-permissions
     ↓
@@ -259,14 +262,14 @@ rm .install_markers/03_driver_install
 make clean
 ```
 
-### Reboot required but can\'t verify
+### Reboot required but can't verify
 After rebooting, if verification still fails:
 ```bash
 # Manually clear the reboot marker
 make mark-reboot-done
 
 # Then try verification again
-make verify-install
+make post-reboot-install
 ```
 
 ## Prerequisites
@@ -283,22 +286,22 @@ Before running any installation:
 If you prefer not to use the Makefile, you can run scripts individually in order:
 ```bash
 # 1. Check system
-./scripts/setup/01_check_system.sh
+./setup/01_check_system.sh
 
 # 2. Install HailoRT
-./scripts/setup/02_install_hailort.sh ~/Downloads/hailort_4.23.0_arm64.deb
+./setup/02_install_hailort.sh ~/Downloads/hailort_4.23.0_arm64.deb
 
 # 3. Install driver
-./scripts/setup/03_install_driver.sh ~/Downloads/hailort-pcie-driver_4.23.0_all.deb
+./setup/03_install_driver.sh ~/Downloads/hailort-pcie-driver_4.23.0_all.deb
 
 # 4. REBOOT
 sudo reboot
 
 # 5. Verify (after reboot)
-./scripts/setup/04_verify_install.sh
+./setup/04_verify_install.sh
 
 # 6. Setup permissions
-./scripts/setup/05_setup_permissions.sh
+./setup/05_setup_permissions.sh
 
 # 7. Log out and back in (or run 'newgrp hailo')
 ```
