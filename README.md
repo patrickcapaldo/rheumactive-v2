@@ -31,10 +31,6 @@ This section provides tailored instructions for different user types to get Rheu
 
 This guide is for developers setting up the project from scratch, including hardware and software installation.
 
-### First Time Developer
-
-This guide is for developers setting up the project from scratch, including hardware and software installation.
-
 #### 1. Hardware Setup
 
 This section guides you through the physical assembly and initial configuration of your Raspberry Pi 5 with the Hailo AI HAT+ and Camera Module.
@@ -224,10 +220,6 @@ After successful installation and initial setup:
     *   See project roadmap for features
 
 [Back to Top](#table-of-contents)
-
-### First Time User
-
-This guide is for users who want to get the application running with minimal interaction, assuming a fresh system.
 
 ### First Time User
 
