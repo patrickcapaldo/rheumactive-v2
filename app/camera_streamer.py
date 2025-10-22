@@ -89,6 +89,9 @@ def app_callback(pad, info, user_data):
     frame = None
     if user_data.use_frame and format is not None and width is not None and height is not None:
         frame = get_numpy_from_buffer(buffer, format, width, height)
+        print(f"app_callback: Frame captured, frame is None: {frame is None}") # DEBUG
+    else:
+        print("app_callback: user_data.use_frame is false or format/width/height is None") # DEBUG
 
     roi = hailo.get_roi_from_buffer(buffer)
     detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
@@ -138,6 +141,9 @@ def app_callback(pad, info, user_data):
         except Exception as e:
             print(f"Error sending data: {e}")
             return Gst.PadProbeReturn.DROP # Stop pipeline if socket fails
+
+    else:
+        print("app_callback: Frame is None, not sending to Flask app") # DEBUG
 
     return Gst.PadProbeReturn.OK
 
