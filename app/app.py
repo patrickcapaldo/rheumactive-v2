@@ -5,7 +5,7 @@ import socket
 import threading
 import base64 # Added import
 
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, request
 
 # --- Configuration ---
 TCP_IP = '127.0.0.1'
@@ -14,6 +14,7 @@ LOGS_DIR = "logs"
 
 # --- Global Data ---
 latest_frame_data = {"image": "", "angle": 0.0}
+client_socket_conn = None # To hold the connection to the streamer
 
 # --- Flask App Setup ---
 app = Flask(__name__)
@@ -21,7 +22,7 @@ app = Flask(__name__)
 # --- Inter-Process Communication (IPC) ---
 
 def socket_listener():
-    global latest_frame_data
+    global latest_frame_data, client_socket_conn
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((TCP_IP, TCP_PORT))
@@ -31,6 +32,7 @@ def socket_listener():
     conn = None
     try:
         conn, addr = server_socket.accept()
+        client_socket_conn = conn # Store the connection globally
         print(f"Camera streamer connected from {addr}")
 
         buffer = b""
@@ -67,6 +69,7 @@ def socket_listener():
         print(f"Error in socket listener: {e}")
     finally:
         if conn: conn.close()
+        client_socket_conn = None # Clear the global connection
         server_socket.close()
         print("Socket listener stopped.")
 
@@ -76,16 +79,41 @@ def socket_listener():
 def index():
     return render_template('index.html')
 
+@app.route('/start_video', methods=['POST'])
+def start_video():
+    global client_socket_conn
+    data = request.get_json()
+    joint = data.get('joint')
+
+    if not joint:
+        return json.dumps({'status': 'error', 'message': 'No joint specified'})
+
+    if client_socket_conn:
+        try:
+            command = f"start_video:{joint}"
+            client_socket_conn.sendall(command.encode('utf-8'))
+            print(f"Sent '{command}' command to streamer.")
+            return json.dumps({'status': 'success'})
+        except Exception as e:
+            print(f"Error sending start_video command: {e}")
+            return json.dumps({'status': 'error', 'message': str(e)})
+    else:
+        print("Cannot start video: No camera streamer connected.")
+        return json.dumps({'status': 'error', 'message': 'No streamer connected'})
+
 @app.route('/video_feed')
 def video_feed():
+
     def generate():
         while True:
             if latest_frame_data["image"]:
+
                 frame = base64.b64decode(latest_frame_data["image"])
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n'
                        b'Content-Length: ' + f'{len(frame)}'.encode() + b'\r\n\r\n' +
                        frame + b'\r\n')
+
             time.sleep(0.05) # ~20 FPS
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
@@ -95,14 +123,6 @@ def angle_feed():
 
 # --- App Lifecycle ---
 
-@app.before_first_request
-def before_first_request():
-    # Start the socket listener in a separate thread
-    listener_thread = threading.Thread(target=socket_listener, daemon=True)
-    listener_thread.start()
-    # Give the listener a moment to bind
-    time.sleep(1)
-
 @app.teardown_appcontext
 def teardown_appcontext(exception=None):
     # No subprocess to terminate here
@@ -111,4 +131,11 @@ def teardown_appcontext(exception=None):
 if __name__ == '__main__':
     # Ensure logs directory exists
     os.makedirs(LOGS_DIR, exist_ok=True)
+
+    # Start the socket listener in a separate thread
+    listener_thread = threading.Thread(target=socket_listener, daemon=True)
+    listener_thread.start()
+    # Give the listener a moment to bind
+    time.sleep(1)
+    
     app.run(host='0.0.0.0', port=5000, debug=False)

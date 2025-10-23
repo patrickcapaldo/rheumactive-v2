@@ -1,4 +1,13 @@
 Flask
 picamera2
 opencv-python
-numpy
+numpy<2.0.0
+./vendor/tappas_core_python_binding-3.31.0-py3-none-any.whl
+setproctitle
+python-dotenv
+pyyaml
+gradio
+fastrtc
+lancedb
+matplotlib
+Pillow

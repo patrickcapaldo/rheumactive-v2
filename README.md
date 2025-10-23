@@ -23,6 +23,22 @@ It also includes the RheumActive web application, built with Flask, for real-tim
 - [Installation Time Estimate](#installation-time-estimate)
 - [Getting Help](#getting-help)
 
+# Showcase
+
+Following are some screenshots of using the RheumActive v2 web application.
+
+![RheumActive Main Menu](/assets/images/ra2_main_menu.png)
+RheumActive v2 main menu.
+
+![RheumActive Measure](/assets/images/ra2_measure_no_cam.png)
+RheumActive new measurement page.
+
+![RheumActive Measure Left Elbow 1](/assets/images/ra2_measure_left_elbow_1.png)
+RheumActive new measurement of left elbow retracted.
+
+![RheumActive Measure Left Elbow 2](/assets/images/ra2_measure_left_elbow_2.png)
+RheumActive new measurement of left elbow extended.
+
 ## Quick Start
 
 This section provides tailored instructions for different user types to get RheumActive v2 up and running.
@@ -192,13 +208,31 @@ Now that the Pi has successfully booted and been verified, we can connect the sp
     ```
 
 6.  **Set up the Web Application environment**:
+
+    a. **Install System-Level Dependencies**:
+
+    The camera streamer relies on system-level libraries for GStreamer and process title management. Install them using `apt-get`:
+    ```bash
+    sudo apt-get update && sudo apt-get install -y \
+        python3-gi \
+        python3-gi-cairo \
+        gir1.2-gstreamer-1.0 \
+        gir1.2-gst-plugins-base-1.0 \
+        gstreamer1.0-plugins-good \
+        gstreamer1.0-plugins-bad \
+        gstreamer1.0-plugins-ugly \
+        gstreamer1.0-tools \
+        python3-setproctitle \
+        libcap-dev
+    ```
+
+    b. **Create Virtual Environment and Install Python Packages**:
     ```bash
     cd ~/rheumactive-v2/app
     python3 -m venv .venv
     source .venv/bin/activate
     pip install -r requirements.txt
     ```
-    *(Ensure `libcap-dev` is installed on your system: `sudo apt-get install libcap-dev`)*
 
 7.  **Run the Web Application**:
     Follow the instructions in the [Running the Web Application](#running-the-web-application) section below.
