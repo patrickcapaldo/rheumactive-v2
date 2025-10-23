@@ -36,7 +36,7 @@ RheumActive new measurement page.
 ![RheumActive Measure Left Elbow 1](/assets/images/ra2_measure_left_elbow_1.png)
 RheumActive new measurement of left elbow retracted.
 
-![RheumActive Measure Left Elbow 2](/assets/images/measure_left_elbow_2.png)
+![RheumActive Measure Left Elbow 2](/assets/images/ra2_measure_left_elbow_2.png)
 RheumActive new measurement of left elbow extended.
 
 ## Quick Start
