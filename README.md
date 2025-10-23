@@ -1,7 +1,8 @@
 # RheumActive v2
 
-This directory contains automated installation scripts for setting up the Hailo AI software stack on Raspberry Pi 5.
-It also includes the RheumActive web application, built with Flask, for real-time pose estimation.
+The second version of RheumActive, now utilising a computer vision-based approach to help those with rheumatoid arthritis to monitor and improve their mobility.
+
+![RheumActive Hardware Unit](assets/images/IMG_0323.png)
 
 ## Table of Contents
 - [Quick Start](#quick-start)
