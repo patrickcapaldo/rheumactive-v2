@@ -115,10 +115,14 @@
                 <div class="mb-3">
                     <label for="jointSelect" class="form-label">Joint</label>
                     <select class="form-select" id="jointSelect">
-                        <option value="Elbow">Elbow</option>
-                        <option value="Knee">Knee</option>
-                        <option value="Shoulder">Shoulder</option>
-                        <option value="Hip">Hip</option>
+                        <option value="left_elbow">Left Elbow</option>
+                        <option value="right_elbow">Right Elbow</option>
+                        <option value="left_shoulder">Left Shoulder</option>
+                        <option value="right_shoulder">Right Shoulder</option>
+                        <option value="left_knee">Left Knee</option>
+                        <option value="right_knee">Right Knee</option>
+                        <option value="left_hip">Left Hip</option>
+                        <option value="right_hip">Right Hip</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -258,26 +262,33 @@
             isCameraPreviewVisible = !isCameraPreviewVisible; // Toggle state
 
             if (isCameraPreviewVisible) {
-                // Tell the backend to start the camera stream
-                fetch('/start_video')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            console.log('Backend confirmed video start.');
-                            cameraPreviewSection.style.display = 'block';
-                            videoFeed.src = '/video_feed'; // Start the video stream
-                            console.log('Setting videoFeed.src to /video_feed');
-                            this.innerText = 'Hide Camera Preview';
-                            startAnglePolling(); // Start polling angles when preview is visible
-                        } else {
-                            console.error('Backend failed to start video stream.');
-                            isCameraPreviewVisible = false; // Revert state on failure
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error starting video stream:', error);
+                const selectedJoint = document.getElementById('jointSelect').value;
+
+                // Tell the backend to start the camera stream with the selected joint
+                fetch('/start_video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ joint: selectedJoint })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log(`Backend confirmed video start for joint: ${selectedJoint}`);
+                        cameraPreviewSection.style.display = 'block';
+                        videoFeed.src = '/video_feed'; // Start the video stream
+                        this.innerText = 'Hide Camera Preview';
+                        startAnglePolling(); // Start polling angles when preview is visible
+                    } else {
+                        console.error('Backend failed to start video stream.');
                         isCameraPreviewVisible = false; // Revert state on failure
-                    });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting video stream:', error);
+                    isCameraPreviewVisible = false; // Revert state on failure
+                });
             } else {
                 cameraPreviewSection.style.display = 'none';
                 videoFeed.src = ''; // Stop the video stream

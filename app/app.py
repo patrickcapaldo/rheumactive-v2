@@ -5,7 +5,7 @@ import socket
 import threading
 import base64 # Added import
 
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, request
 
 # --- Configuration ---
 TCP_IP = '127.0.0.1'
@@ -79,13 +79,20 @@ def socket_listener():
 def index():
     return render_template('index.html')
 
-@app.route('/start_video')
+@app.route('/start_video', methods=['POST'])
 def start_video():
     global client_socket_conn
+    data = request.get_json()
+    joint = data.get('joint')
+
+    if not joint:
+        return json.dumps({'status': 'error', 'message': 'No joint specified'})
+
     if client_socket_conn:
         try:
-            client_socket_conn.sendall(b'start_video')
-            print("Sent 'start_video' command to streamer.")
+            command = f"start_video:{joint}"
+            client_socket_conn.sendall(command.encode('utf-8'))
+            print(f"Sent '{command}' command to streamer.")
             return json.dumps({'status': 'success'})
         except Exception as e:
             print(f"Error sending start_video command: {e}")

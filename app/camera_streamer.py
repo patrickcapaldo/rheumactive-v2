@@ -47,10 +47,22 @@ SKELETON = [
     (KEYPOINTS['right_knee'], KEYPOINTS['right_ankle']),
 ]
 
+JOINT_TRIOS = {
+    'left_elbow': ('left_shoulder', 'left_elbow', 'left_wrist'),
+    'right_elbow': ('right_shoulder', 'right_elbow', 'right_wrist'),
+    'left_shoulder': ('left_hip', 'left_shoulder', 'left_elbow'),
+    'right_shoulder': ('right_hip', 'right_shoulder', 'right_elbow'),
+    'left_knee': ('left_hip', 'left_knee', 'left_ankle'),
+    'right_knee': ('right_hip', 'right_knee', 'right_ankle'),
+    'left_hip': ('left_shoulder', 'left_hip', 'left_knee'),
+    'right_hip': ('right_shoulder', 'right_hip', 'right_knee'),
+}
+
 # --- User-defined Callback Class ---
 class user_app_callback_class(app_callback_class):
     def __init__(self):
         super().__init__()
+        self.selected_joint = 'left_elbow' # Default joint
 
 # --- Helper Functions ---
 def get_angle(p1, p2, p3):
@@ -62,11 +74,12 @@ def get_angle(p1, p2, p3):
     cosine_angle = np.clip(dot_product / norm_product, -1.0, 1.0)
     return np.degrees(np.arccos(cosine_angle))
 
-def draw_pose(frame, keypoints_with_scores, confidence_threshold=0.5):
+def draw_pose(frame, keypoints_with_scores, confidence_threshold=0.5, highlight_indices=None):
     # Draw keypoints
     for i, point in enumerate(keypoints_with_scores):
         if point[2] > confidence_threshold:
-            cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 255, 0), -1)
+            color = (0, 255, 255) if highlight_indices and i in highlight_indices else (0, 255, 0)
+            cv2.circle(frame, (int(point[0]), int(point[1])), 5, color, -1)
 
     # Draw skeleton
     for p1_idx, p2_idx in SKELETON:
@@ -86,18 +99,16 @@ def app_callback(pad, info, user_data):
         return Gst.PadProbeReturn.OK
 
     format, width, height = get_caps_from_pad(pad)
-
     frame = None
     if user_data.use_frame and format is not None and width is not None and height is not None:
         frame = get_numpy_from_buffer(buffer, format, width, height)
-
-
 
     roi = hailo.get_roi_from_buffer(buffer)
     detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
 
     current_angle = 0.0
     all_keypoints = np.zeros((17, 3), dtype=np.float32)
+    highlight_indices = []
 
     for detection in detections:
         if detection.get_label() == "person":
@@ -108,18 +119,23 @@ def app_callback(pad, info, user_data):
                 for i in range(len(points)):
                     x = int((points[i].x() * bbox.width() + bbox.xmin()) * width)
                     y = int((points[i].y() * bbox.height() + bbox.ymin()) * height)
-                    # Assuming the model provides confidence, if not, we default to 1.0
                     confidence = points[i].confidence() if hasattr(points[i], 'confidence') else 1.0
                     all_keypoints[i] = [x, y, confidence]
 
-                # Calculate angle (example: left elbow)
-                p1 = all_keypoints[KEYPOINTS['left_shoulder'], :2]
-                p2 = all_keypoints[KEYPOINTS['left_elbow'], :2]
-                p3 = all_keypoints[KEYPOINTS['left_wrist'], :2]
-                current_angle = get_angle(p1, p2, p3)
+                # Calculate angle based on selected joint
+                if user_data.selected_joint and user_data.selected_joint in JOINT_TRIOS:
+                    p1_name, p2_name, p3_name = JOINT_TRIOS[user_data.selected_joint]
+                    
+                    p1_idx, p2_idx, p3_idx = KEYPOINTS[p1_name], KEYPOINTS[p2_name], KEYPOINTS[p3_name]
+                    highlight_indices = [p1_idx, p2_idx, p3_idx]
+
+                    p1 = all_keypoints[p1_idx, :2]
+                    p2 = all_keypoints[p2_idx, :2]
+                    p3 = all_keypoints[p3_idx, :2]
+                    current_angle = get_angle(p1, p2, p3)
 
                 if frame is not None:
-                    draw_pose(frame, all_keypoints)
+                    draw_pose(frame, all_keypoints, highlight_indices=highlight_indices)
                     cv2.putText(frame, f"Angle: {current_angle:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
     if frame is not None:
@@ -187,11 +203,13 @@ def command_listener(sock, user_data):
     """Listens for commands from the Flask app."""
     try:
         while True:
-            data = sock.recv(1024)
+            data = sock.recv(1024).decode('utf-8')
             if not data:
                 break
-            if data == b'start_video':
-                print("Received 'start_video' command. Enabling frame streaming.")
+            if data.startswith('start_video:'):
+                joint = data.split(':')[1]
+                print(f"Received 'start_video' command for joint: {joint}. Enabling frame streaming.")
+                user_data.selected_joint = joint
                 user_data.use_frame = True
     except Exception as e:
         print(f"Error in command listener: {e}")
