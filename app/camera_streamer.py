@@ -182,7 +182,22 @@ class HeadlessGStreamerPoseEstimationApp(GStreamerPoseEstimationApp):
         print(pipeline_string)
         return pipeline_string
 
+import threading
+
 # --- Main Streamer Logic ---
+def command_listener(sock, user_data):
+    """Listens for commands from the Flask app."""
+    try:
+        while True:
+            data = sock.recv(1024)
+            if not data:
+                break
+            if data == b'start_video':
+                print("Received 'start_video' command. Enabling frame streaming.")
+                user_data.use_frame = True
+    except Exception as e:
+        print(f"Error in command listener: {e}")
+
 def main():
     global sock
     print(f"Camera Streamer starting. Connecting to {TCP_IP}:{TCP_PORT}")
@@ -200,7 +215,11 @@ def main():
             print("Warning: .env file not found. Hailo App might not run correctly.")
 
         user_data = user_app_callback_class()
-        user_data.use_frame = True # We need the frame for drawing
+        user_data.use_frame = False # Start with frame streaming disabled
+
+        # Start a thread to listen for commands from the Flask app
+        listener_thread = threading.Thread(target=command_listener, args=(sock, user_data), daemon=True)
+        listener_thread.start()
 
         # Get default parser and set input to rpi
         parser = get_default_parser()

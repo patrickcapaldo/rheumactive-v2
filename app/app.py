@@ -14,6 +14,7 @@ LOGS_DIR = "logs"
 
 # --- Global Data ---
 latest_frame_data = {"image": "", "angle": 0.0}
+client_socket_conn = None # To hold the connection to the streamer
 
 # --- Flask App Setup ---
 app = Flask(__name__)
@@ -21,7 +22,7 @@ app = Flask(__name__)
 # --- Inter-Process Communication (IPC) ---
 
 def socket_listener():
-    global latest_frame_data
+    global latest_frame_data, client_socket_conn
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((TCP_IP, TCP_PORT))
@@ -31,6 +32,7 @@ def socket_listener():
     conn = None
     try:
         conn, addr = server_socket.accept()
+        client_socket_conn = conn # Store the connection globally
         print(f"Camera streamer connected from {addr}")
 
         buffer = b""
@@ -67,6 +69,7 @@ def socket_listener():
         print(f"Error in socket listener: {e}")
     finally:
         if conn: conn.close()
+        client_socket_conn = None # Clear the global connection
         server_socket.close()
         print("Socket listener stopped.")
 
@@ -75,6 +78,21 @@ def socket_listener():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/start_video')
+def start_video():
+    global client_socket_conn
+    if client_socket_conn:
+        try:
+            client_socket_conn.sendall(b'start_video')
+            print("Sent 'start_video' command to streamer.")
+            return json.dumps({'status': 'success'})
+        except Exception as e:
+            print(f"Error sending start_video command: {e}")
+            return json.dumps({'status': 'error', 'message': str(e)})
+    else:
+        print("Cannot start video: No camera streamer connected.")
+        return json.dumps({'status': 'error', 'message': 'No streamer connected'})
 
 @app.route('/video_feed')
 def video_feed():

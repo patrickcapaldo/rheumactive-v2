@@ -258,11 +258,26 @@
             isCameraPreviewVisible = !isCameraPreviewVisible; // Toggle state
 
             if (isCameraPreviewVisible) {
-                cameraPreviewSection.style.display = 'block';
-                videoFeed.src = '/video_feed'; // Start the video stream
-                console.log('Setting videoFeed.src to /video_feed'); // DEBUG
-                this.innerText = 'Hide Camera Preview';
-                startAnglePolling(); // Start polling angles when preview is visible
+                // Tell the backend to start the camera stream
+                fetch('/start_video')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            console.log('Backend confirmed video start.');
+                            cameraPreviewSection.style.display = 'block';
+                            videoFeed.src = '/video_feed'; // Start the video stream
+                            console.log('Setting videoFeed.src to /video_feed');
+                            this.innerText = 'Hide Camera Preview';
+                            startAnglePolling(); // Start polling angles when preview is visible
+                        } else {
+                            console.error('Backend failed to start video stream.');
+                            isCameraPreviewVisible = false; // Revert state on failure
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting video stream:', error);
+                        isCameraPreviewVisible = false; // Revert state on failure
+                    });
             } else {
                 cameraPreviewSection.style.display = 'none';
                 videoFeed.src = ''; // Stop the video stream
