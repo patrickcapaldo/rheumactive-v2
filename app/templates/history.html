@@ -17,23 +17,23 @@
     <div class="container">
         <h1 class="mb-4">Measurement History</h1>
 
-        <!-- Filtering Form -->
-        <form id="filter-form" class="filter-form">
-            <div class="form-row">
-                <div class="col-md-3">
-                    <input type="text" id="joint-filter" class="form-control" placeholder="Filter by Joint">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" id="exercise-filter" class="form-control" placeholder="Filter by Exercise">
-                </div>
-                <div class="col-md-3">
-                    <input type="date" id="date-filter" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary">Filter</button>
-                </div>
+        <!-- Filtering and Pagination Controls -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <form id="filter-form" class="form-inline">
+                <input type="text" id="joint-filter" class="form-control mr-2" placeholder="Filter by Joint">
+                <input type="text" id="exercise-filter" class="form-control mr-2" placeholder="Filter by Exercise">
+                <input type="date" id="date-filter" class="form-control mr-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+            </form>
+            <div class="form-inline">
+                <label for="per-page-select" class="mr-2">Logs per page:</label>
+                <select id="per-page-select" class="form-control">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="30">30</option>
+                </select>
             </div>
-        </form>
+        </div>
 
         <!-- Log List -->
         <div id="log-list"></div>
@@ -49,6 +49,7 @@
             const logList = document.getElementById("log-list");
             const pagination = document.getElementById("pagination");
             const filterForm = document.getElementById("filter-form");
+            const perPageSelect = document.getElementById("per-page-select");
 
             let currentPage = 1;
 
@@ -56,8 +57,9 @@
                 const joint = document.getElementById("joint-filter").value;
                 const exercise = document.getElementById("exercise-filter").value;
                 const date = document.getElementById("date-filter").value;
+                const perPage = perPageSelect.value;
 
-                let url = `/api/measurements?page=${page}`;
+                let url = `/api/measurements?page=${page}&per_page=${perPage}`;
                 if (joint) url += `&joint=${joint}`;
                 if (exercise) url += `&exercise=${exercise}`;
                 if (date) url += `&date=${date}`;
@@ -113,6 +115,11 @@
 
             filterForm.addEventListener("submit", (e) => {
                 e.preventDefault();
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
+
+            perPageSelect.addEventListener("change", () => {
                 currentPage = 1;
                 fetchLogs(currentPage);
             });
