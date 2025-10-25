@@ -84,7 +84,7 @@
                         <a class="nav-link" href="#" onclick="showView('measure')">Measure</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showView('history')">History</a>
+                        <a class="nav-link" href="/history">History</a>
                     </li>
                 </ul>
             </div>
@@ -297,11 +297,66 @@
             }
         });
 
-        // --- Measurement Logic (Placeholder) ---
-        document.getElementById('beginMeasurementBtn').addEventListener('click', function() {
-            alert('Measurement started! (Logic to be implemented)');
-            // In a real scenario, this would trigger the measurement process
-            // and potentially switch to a measurement-in-progress view.
+        // --- Measurement Logic ---
+        document.getElementById('beginMeasurementBtn').addEventListener('click', async function() {
+            this.disabled = true;
+            this.innerText = 'Recording...';
+
+            const joint = document.getElementById('jointSelect').value;
+            const exercise = document.getElementById('exerciseSelect').value;
+            const duration = parseInt(document.querySelector('input[name="duration"]:checked').value, 10);
+            
+            let angleData = [];
+            const startTime = Date.now();
+
+            // --- Angle Data Collector ---
+            const measurementInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/angle_feed');
+                    const data = await response.json();
+                    if (data.angle) {
+                        angleData.push(data.angle);
+                    }
+
+                    const elapsedTime = (Date.now() - startTime) / 1000;
+                    this.innerText = `Recording... (${Math.round(elapsedTime)}s / ${duration}s)`;
+
+                    if (elapsedTime >= duration) {
+                        clearInterval(measurementInterval);
+                        stopAnglePolling();
+                        this.innerText = 'Saving...';
+
+                        // --- Data Submission ---
+                        const response = await fetch('/api/measurements', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ 
+                                joint: joint, 
+                                exercise: exercise, 
+                                data: angleData 
+                            }),
+                        });
+
+                        if (response.ok) {
+                            alert('Measurement saved successfully!');
+                            window.location.href = '/history'; // Redirect to history page
+                        } else {
+                            alert('Error saving measurement.');
+                        }
+
+                        this.disabled = false;
+                        this.innerText = 'Begin Measurement';
+                    }
+                } catch (error) {
+                    console.error('Error during measurement:', error);
+                    clearInterval(measurementInterval);
+                    this.disabled = false;
+                    this.innerText = 'Begin Measurement';
+                    alert('An error occurred during measurement.');
+                }
+            }, 200); // Match angle polling frequency
         });
 
     </script>

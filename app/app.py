@@ -3,9 +3,10 @@ import json
 import time
 import socket
 import threading
-import base64 # Added import
+import base64
 
-from flask import Flask, render_template, Response, request
+from flask import Flask, render_template, Response, request, jsonify
+import database as db
 
 # --- Configuration ---
 TCP_IP = '127.0.0.1'
@@ -18,6 +19,10 @@ client_socket_conn = None # To hold the connection to the streamer
 
 # --- Flask App Setup ---
 app = Flask(__name__)
+
+# --- Database Initialisation ---
+with app.app_context():
+    db.init_db()
 
 # --- Inter-Process Communication (IPC) ---
 
@@ -79,6 +84,16 @@ def socket_listener():
 def index():
     return render_template('index.html')
 
+@app.route('/history')
+def history():
+    """Renders the history page."""
+    return render_template('history.html')
+
+@app.route('/measurement/<measurement_id>')
+def measurement_detail(measurement_id):
+    """Renders the measurement detail page."""
+    return render_template('measurement_detail.html', measurement_id=measurement_id)
+
 @app.route('/start_video', methods=['POST'])
 def start_video():
     global client_socket_conn
@@ -120,6 +135,51 @@ def video_feed():
 @app.route('/angle_feed')
 def angle_feed():
     return json.dumps({"angle": latest_frame_data["angle"]})
+
+# --- API Routes ---
+
+@app.route('/api/measurements', methods=['POST'])
+def api_save_measurement():
+    """API endpoint to save a new measurement."""
+    data = request.get_json()
+    joint = data.get('joint')
+    exercise = data.get('exercise')
+    measure_data = data.get('data')
+
+    if not all([joint, exercise, measure_data]):
+        return jsonify({'status': 'error', 'message': 'Missing required data'}), 400
+
+    try:
+        db.save_measurement(joint, exercise, measure_data)
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/measurements', methods=['GET'])
+def api_get_measurements():
+    """API endpoint to get measurements with pagination and filtering."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    joint = request.args.get('joint')
+    exercise = request.args.get('exercise')
+    date = request.args.get('date')
+
+    try:
+        result = db.get_measurements(page, per_page, joint, exercise, date)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/measurements/<measurement_id>', methods=['GET'])
+def api_get_measurement(measurement_id):
+    """API endpoint to get a single measurement by its ID."""
+    try:
+        measurement = db.get_measurement_by_id(measurement_id)
+        if measurement:
+            return jsonify(measurement)
+        return jsonify({'status': 'error', 'message': 'Measurement not found'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # --- App Lifecycle ---
 

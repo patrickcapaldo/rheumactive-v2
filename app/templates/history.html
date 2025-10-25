@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement History</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { font-family: sans-serif; }
+        .container { margin-top: 2rem; }
+        .filter-form { margin-bottom: 2rem; }
+        .log-item { border-bottom: 1px solid #eee; padding: 1rem 0; }
+        .log-item:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Measurement History</h1>
+
+        <!-- Filtering Form -->
+        <form id="filter-form" class="filter-form">
+            <div class="form-row">
+                <div class="col-md-3">
+                    <input type="text" id="joint-filter" class="form-control" placeholder="Filter by Joint">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="exercise-filter" class="form-control" placeholder="Filter by Exercise">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="date-filter" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Log List -->
+        <div id="log-list"></div>
+
+        <!-- Pagination -->
+        <nav>
+            <ul id="pagination" class="pagination"></ul>
+        </nav>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const logList = document.getElementById("log-list");
+            const pagination = document.getElementById("pagination");
+            const filterForm = document.getElementById("filter-form");
+
+            let currentPage = 1;
+
+            async function fetchLogs(page = 1) {
+                const joint = document.getElementById("joint-filter").value;
+                const exercise = document.getElementById("exercise-filter").value;
+                const date = document.getElementById("date-filter").value;
+
+                let url = `/api/measurements?page=${page}`;
+                if (joint) url += `&joint=${joint}`;
+                if (exercise) url += `&exercise=${exercise}`;
+                if (date) url += `&date=${date}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                renderLogs(data.data);
+                renderPagination(data.total, data.page, data.per_page);
+            }
+
+            function renderLogs(logs) {
+                logList.innerHTML = "";
+                if (logs.length === 0) {
+                    logList.innerHTML = "<p>No measurements found.</p>";
+                    return;
+                }
+
+                logs.forEach(log => {
+                    const logItem = document.createElement("div");
+                    logItem.className = "log-item";
+                    logItem.innerHTML = `
+                        <h5>${log.joint} - ${log.exercise}</h5>
+                        <p>Date: ${new Date(log.timestamp).toLocaleString()}</p>
+                        <p>Min Angle: ${log.min_angle.toFixed(2)}</p>
+                        <p>Max Angle: ${log.max_angle.toFixed(2)}</p>
+                        <a href="/measurement/${log.id}" class="btn btn-sm btn-info">View Details</a>
+                    `;
+                    logList.appendChild(logItem);
+                });
+            }
+
+            function renderPagination(total, page, perPage) {
+                pagination.innerHTML = "";
+                const totalPages = Math.ceil(total / perPage);
+
+                for (let i = 1; i <= totalPages; i++) {
+                    const li = document.createElement("li");
+                    li.className = `page-item ${i === page ? 'active' : ''}`;
+                    const a = document.createElement("a");
+                    a.className = "page-link";
+                    a.href = "#";
+                    a.innerText = i;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        currentPage = i;
+                        fetchLogs(i);
+                    });
+                    li.appendChild(a);
+                    pagination.appendChild(li);
+                }
+            }
+
+            filterForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
+
+            // Initial fetch
+            fetchLogs();
+        });
+    </script>
+</body>
+</html>

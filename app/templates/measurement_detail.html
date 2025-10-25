@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement Details</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        .container { margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Measurement Details</h1>
+        <div id="measurement-details"></div>
+        <canvas id="angle-chart" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const measurementDetails = document.getElementById("measurement-details");
+            const chartCanvas = document.getElementById("angle-chart");
+            const measurementId = window.location.pathname.split("/").pop();
+
+            const response = await fetch(`/api/measurements/${measurementId}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                measurementDetails.innerHTML = `
+                    <h5>${data.joint} - ${data.exercise}</h5>
+                    <p>Date: ${new Date(data.timestamp).toLocaleString()}</p>
+                    <p>Min Angle: ${data.min_angle.toFixed(2)}</p>
+                    <p>Max Angle: ${data.max_angle.toFixed(2)}</p>
+                `;
+
+                new Chart(chartCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: data.data.map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Angle Fluctuation',
+                            data: data.data,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                measurementDetails.innerHTML = `<p>${data.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
