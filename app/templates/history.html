@@ -117,11 +117,13 @@
                 const exercise = document.getElementById("exercise-filter").value;
                 const dateFrom = document.getElementById("date-from-filter").value;
                 const dateTo = document.getElementById("date-to-filter").value;
-                const perPage = perPageSelect.value;
-                if (joint) url += `&joint=${joint}`;
-                if (exercise) url += `&exercise=${exercise}`;
-                if (dateFrom) url += `&date_from=${dateFrom}`;
-                if (dateTo) url += `&date_to=${dateTo}`;
+                                const perPage = perPageSelect.value;
+                
+                                let url = `/api/measurements?page=${page}&per_page=${perPage}`;
+                                if (joint) url += `&joint=${joint}`;
+                                if (exercise) url += `&exercise=${exercise}`;
+                                if (dateFrom) url += `&date_from=${dateFrom}`;
+                                if (dateTo) url += `&date_to=${dateTo}`;
 
                 const response = await fetch(url);
                 const data = await response.json();
