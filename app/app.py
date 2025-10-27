@@ -84,6 +84,11 @@ def socket_listener():
 def index():
     return render_template('index.html')
 
+@app.route('/measure')
+def measure():
+    """Renders the measure page."""
+    return render_template('measure.html')
+
 @app.route('/history')
 def history():
     """Renders the history page."""

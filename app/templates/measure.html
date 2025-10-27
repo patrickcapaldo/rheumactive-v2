@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+
+{% block title %}New Measurement - RheumActive{% endblock %}
+
+{% block head %}
+    <style>
+        .card {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border-color: #495057;
+        }
+        .btn-primary {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+        }
+        .btn-primary:hover {
+            background-color: #0aa3c2;
+            border-color: #0aa3c2;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #5a6268;
+        }
+        .form-select, .form-control {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #6c757d;
+        }
+        .form-select:focus, .form-control:focus {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #0dcaf0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+        }
+        .form-check-input:checked {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+        }
+        .form-check-input:focus {
+            border-color: #0dcaf0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2 class="mb-4 text-primary">New Measurement</h2>
+    <div class="card p-4 mb-4">
+        <div class="mb-3">
+            <label for="jointSelect" class="form-label">Joint</label>
+            <select class="form-select" id="jointSelect">
+                <option value="left_elbow">Left Elbow</option>
+                <option value="right_elbow">Right Elbow</option>
+                <option value="left_shoulder">Left Shoulder</option>
+                <option value="right_shoulder">Right Shoulder</option>
+                <option value="left_knee">Left Knee</option>
+                <option value="right_knee">Right Knee</option>
+                <option value="left_hip">Left Hip</option>
+                <option value="right_hip">Right Hip</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="exerciseSelect" class="form-label">Exercise</label>
+            <select class="form-select" id="exerciseSelect">
+                <option value="Flexion">Flexion</option>
+                <option value="Extension">Extension</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Duration</label>
+            <div class="btn-group w-100" role="group" aria-label="Duration options">
+                <input type="radio" class="btn-check" name="duration" id="duration15" value="15" autocomplete="off">
+                <label class="btn btn-outline-primary" for="duration15">15s</label>
+
+                <input type="radio" class="btn-check" name="duration" id="duration30" value="30" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="duration30">30s</label>
+
+                <input type="radio" class="btn-check" name="duration" id="duration45" value="45" autocomplete="off">
+                <label class="btn btn-outline-primary" for="duration45">45s</label>
+
+                <input type="radio" class="btn-check" name="duration" id="duration60" value="60" autocomplete="off">
+                <label class="btn btn-outline-primary" for="duration60">60s</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <button id="togglePreviewBtn" class="btn btn-primary btn-lg" type="button">Show Camera Preview</button>
+    </div>
+
+    <div id="cameraPreviewSection" class="card p-3 mb-4" style="display:none;">
+        <h3 class="text-primary">Live Preview</h3>
+        <img id="videoFeed" class="img-fluid rounded mb-3" alt="Live Camera Feed">
+        <div class="d-flex justify-content-around align-items-center">
+            <div class="text-center">
+                <h4 class="text-light">Live Angle</h4>
+                <p class="display-4 fw-bold text-primary" id="liveAngle">0.0°</p>
+            </div>
+            <button id="beginMeasurementBtn" class="btn btn-success btn-lg" type="button" disabled>Begin Measurement</button>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="/" class="btn btn-secondary">Back</a>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let anglePollingInterval;
+    let isCameraPreviewVisible = false;
+
+    // --- Angle Polling ---
+    function startAnglePolling() {
+        if (!anglePollingInterval) {
+            anglePollingInterval = setInterval(fetchAngle, 200); // Poll every 200ms (5 times per second)
+        }
+    }
+
+    function stopAnglePolling() {
+        if (anglePollingInterval) {
+            clearInterval(anglePollingInterval);
+            anglePollingInterval = null;
+        }
+    }
+
+    async function fetchAngle() {
+        try {
+            const response = await fetch('/angle_feed');
+            const data = await response.json();
+            document.getElementById('liveAngle').innerText = `${data.angle}°`;
+            // Enable Begin Measurement button if angle is not 0.0 (meaning camera is active)
+            if (data.angle !== 0.0) {
+                document.getElementById('beginMeasurementBtn').disabled = false;
+            } else {
+                document.getElementById('beginMeasurementBtn').disabled = true;
+            }
+        } catch (error) {
+            console.error('Error fetching angle:', error);
+            document.getElementById('liveAngle').innerText = 'N/A';
+            document.getElementById('beginMeasurementBtn').disabled = true;
+        }
+    }
+
+    // --- Camera Preview Toggle Button ---
+    document.getElementById('togglePreviewBtn').addEventListener('click', function() {
+        const cameraPreviewSection = document.getElementById('cameraPreviewSection');
+        const videoFeed = document.getElementById('videoFeed');
+
+        isCameraPreviewVisible = !isCameraPreviewVisible; // Toggle state
+
+        if (isCameraPreviewVisible) {
+            const selectedJoint = document.getElementById('jointSelect').value;
+
+            // Tell the backend to start the camera stream with the selected joint
+            fetch('/start_video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ joint: selectedJoint })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log(`Backend confirmed video start for joint: ${selectedJoint}`);
+                    cameraPreviewSection.style.display = 'block';
+                    videoFeed.src = '/video_feed'; // Start the video stream
+                    this.innerText = 'Hide Camera Preview';
+                    startAnglePolling(); // Start polling angles when preview is visible
+                } else {
+                    console.error('Backend failed to start video stream.');
+                    isCameraPreviewVisible = false; // Revert state on failure
+                }
+            })
+            .catch(error => {
+                console.error('Error starting video stream:', error);
+                isCameraPreviewVisible = false; // Revert state on failure
+            });
+        } else {
+            cameraPreviewSection.style.display = 'none';
+            videoFeed.src = ''; // Stop the video stream
+            this.innerText = 'Show Camera Preview';
+            stopAnglePolling(); // Stop polling angles when preview is hidden
+        }
+    });
+
+    // --- Measurement Logic ---
+    document.getElementById('beginMeasurementBtn').addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerText = 'Recording...';
+
+        const joint = document.getElementById('jointSelect').value;
+        const exercise = document.getElementById('exerciseSelect').value;
+        const duration = parseInt(document.querySelector('input[name="duration"]:checked').value, 10);
+        
+        let angleData = [];
+        const startTime = Date.now();
+
+        // --- Angle Data Collector ---
+        const measurementInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/angle_feed');
+                const data = await response.json();
+                if (data.angle) {
+                    angleData.push(data.angle);
+                }
+
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                this.innerText = `Recording... (${Math.round(elapsedTime)}s / ${duration}s)`;
+
+                if (elapsedTime >= duration) {
+                    clearInterval(measurementInterval);
+                    stopAnglePolling();
+                    this.innerText = 'Saving...';
+
+                    // --- Data Submission ---
+                    const response = await fetch('/api/measurements', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            joint: joint, 
+                            exercise: exercise, 
+                            data: angleData 
+                        }),
+                    });
+
+                    if (response.ok) {
+                        alert('Measurement saved successfully!');
+                        window.location.href = '/history'; // Redirect to history page
+                    } else {
+                        alert('Error saving measurement.');
+                    }
+
+                    this.disabled = false;
+                    this.innerText = 'Begin Measurement';
+                }
+            } catch (error) {
+                console.error('Error during measurement:', error);
+                clearInterval(measurementInterval);
+                this.disabled = false;
+                this.innerText = 'Begin Measurement';
+                alert('An error occurred during measurement.');
+            }
+        }, 200); // Match angle polling frequency
+    });
+</script>
+{% endblock %}
