@@ -185,6 +185,8 @@ def api_get_measurements():
             data['id'] = os.path.basename(filepath).replace('.json', '')
             all_measurements.append(data)
 
+    print(f"Total mock measurements loaded: {len(all_measurements)}")
+
     # Apply filters
     filtered_measurements = []
     for measurement in all_measurements:

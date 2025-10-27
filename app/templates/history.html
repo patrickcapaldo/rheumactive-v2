@@ -79,8 +79,8 @@
                 <option value="Flexion">Flexion</option>
                 <option value="Extension">Extension</option>
             </select>
-            <input type="date" id="date-from-filter" class="form-control mr-2" title="Date From">
-            <input type="date" id="date-to-filter" class="form-control mr-2" title="Date To">
+            <input type="date" id="date-from-filter" class="form-control mr-2" title="Start Date">
+            <input type="date" id="date-to-filter" class="form-control mr-2" title="End Date">
             <button type="submit" class="btn btn-primary">Filter</button>
         </form>
         <div class="form-inline">
@@ -126,6 +126,7 @@
 
                 const response = await fetch(url);
                 const data = await response.json();
+                console.log("API Response Data:", data);
 
                 renderLogs(data.data);
                 renderPagination(data.total, data.page, data.per_page);
