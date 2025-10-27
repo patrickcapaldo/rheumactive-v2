@@ -28,7 +28,7 @@ The second version of RheumActive, now utilising a computer vision-based approac
 
 Following are some screenshots of using the RheumActive v2 web application.
 
-![RheumActive Main Menu](/assets/images/ra2_main_menu.png)
+![RheumActive Main Menu](/assets/images/ra2_main_menu_20251023_202538.png)
 RheumActive v2 main menu.
 
 ![RheumActive Measure](/assets/images/ra2_measure_no_cam.png)
@@ -39,6 +39,16 @@ RheumActive new measurement of left elbow retracted.
 
 ![RheumActive Measure Left Elbow 2](/assets/images/ra2_measure_left_elbow_2.png)
 RheumActive new measurement of left elbow extended.
+
+![RheumActive History](/assets/images/ra2_history_1_20251027_204013.png)
+RheumActive history of joint measurements.
+
+![RheumActive History of Left Elbow Joint](/assets/images/ra2_history_2_20251027_204026.png)
+RheumActive history of left elbow joint measurements.
+
+![RheumActive Data of Left Elbow Joint Measurement](/assets/images/ra2_history_3_20251027_204054.png)
+RheumActive data of left elbow joint measurement.
+
 
 ## Quick Start
 
