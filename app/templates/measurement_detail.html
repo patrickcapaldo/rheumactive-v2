@@ -1,34 +1,25 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Measurement Details</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% extends 'base.html' %}
+
+{% block title %}Measurement Details - RheumActive{% endblock %}
+
+{% block head %}
     <style>
-        body {
-            background-color: #212529;
-            color: #f8f9fa;
-        }
-        .container {
-            margin-top: 2rem;
-        }
         #angle-chart {
             background-color: #343a40;
             border-radius: 5px;
             padding: 1rem;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="mb-4">Measurement Details</h1>
-        <div id="measurement-details"></div>
-        <canvas id="angle-chart" width="400" height="200"></canvas>
-    </div>
+{% endblock %}
 
-    <script>
+{% block content %}
+    <h2 class="mb-4 text-primary">Measurement Details</h2>
+    <div id="measurement-details"></div>
+    <canvas id="angle-chart" width="400" height="200"></canvas>
+    <div class="d-flex justify-content-between mt-4">
+        <a href="/history" class="btn btn-secondary">Back to History</a>
+    </div>
+{% endblock %}
         document.addEventListener("DOMContentLoaded", async () => {
             const measurementDetails = document.getElementById("measurement-details");
             const chartCanvas = document.getElementById("angle-chart");

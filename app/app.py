@@ -181,7 +181,6 @@ def api_get_measurements():
     for filepath in glob.glob(os.path.join(mock_data_dir, '*.json')):
         with open(filepath, 'r') as f:
             data = json.load(f)
-            # Add a dummy ID for mock data
             data['id'] = os.path.basename(filepath).replace('.json', '')
             all_measurements.append(data)
 
@@ -235,7 +234,6 @@ def api_get_measurement(measurement_id):
         if os.path.exists(filepath):
             with open(filepath, 'r') as f:
                 measurement = json.load(f)
-                measurement['id'] = measurement_id # Add ID to the returned object
                 return jsonify(measurement)
         return jsonify({'status': 'error', 'message': 'Measurement not found'}), 404
     except Exception as e:
