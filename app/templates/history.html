@@ -140,6 +140,10 @@
                 renderPagination(data.total, data.page, data.per_page);
             }
 
+            function formatJointName(joint) {
+                return joint.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
             function renderLogs(logs) {
                 logList.innerHTML = "";
                 if (logs.length === 0) {
@@ -153,8 +157,8 @@
                     logItem.innerHTML = `
                         <div class="card mb-4">
                             <div class="card-body">
-                                <h5 class="card-title">${log.joint} - ${log.exercise}</h5>
-                                <h6 class="card-subtitle mb-2 text-muted">${new Date(log.unix_timestamp * 1000).toLocaleString()}</h6>
+                                <h5 class="card-title">${formatJointName(log.joint)} - ${log.exercise}</h5>
+                                <h6 class="card-subtitle mb-2">${new Date(log.unix_timestamp * 1000).toLocaleString()}</h6>
                                 <p class="card-text">
                                     <strong>Min Angle:</strong> ${log.min_value.toFixed(2)}°<br>
                                     <strong>Max Angle:</strong> ${log.max_value.toFixed(2)}°
