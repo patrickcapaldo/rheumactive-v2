@@ -82,6 +82,7 @@
             <input type="date" id="date-from-filter" class="form-control mr-2" title="Start Date">
             <input type="date" id="date-to-filter" class="form-control mr-2" title="End Date">
             <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="button" id="reset-filters-btn" class="btn btn-secondary ml-2">Reset</button>
         </form>
         <div class="form-inline">
             <label for="per-page-select" class="mr-2">Logs per page:</label>
@@ -194,6 +195,16 @@
 
             // Initial fetch
             fetchLogs();
+
+            document.getElementById("reset-filters-btn").addEventListener("click", () => {
+                document.getElementById("joint-filter").value = "";
+                document.getElementById("exercise-filter").value = "";
+                document.getElementById("date-from-filter").value = "";
+                document.getElementById("date-to-filter").value = "";
+                perPageSelect.value = "10"; // Reset to default
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
         });
     </script>
 {% endblock %}
