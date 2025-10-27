@@ -56,16 +56,31 @@
 {% endblock %}
 
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Measurement History</h1>
-        <a href="/" class="btn btn-secondary">Back to Home</a>
+    <div class="d-flex justify-content-between mt-4">
+        <a href="/" class="btn btn-secondary">Back</a>
     </div>
+
+    <h1>Measurement History</h1>
 
     <!-- Filtering and Pagination Controls -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <form id="filter-form" class="form-inline">
-            <input type="text" id="joint-filter" class="form-control mr-2" placeholder="Filter by Joint">
-            <input type="text" id="exercise-filter" class="form-control mr-2" placeholder="Filter by Exercise">
+            <select id="joint-filter" class="form-select mr-2">
+                <option value="">All Joints</option>
+                <option value="left_elbow">Left Elbow</option>
+                <option value="right_elbow">Right Elbow</option>
+                <option value="left_shoulder">Left Shoulder</option>
+                <option value="right_shoulder">Right Shoulder</option>
+                <option value="left_knee">Left Knee</option>
+                <option value="right_knee">Right Knee</option>
+                <option value="left_hip">Left Hip</option>
+                <option value="right_hip">Right Hip</option>
+            </select>
+            <select id="exercise-filter" class="form-select mr-2">
+                <option value="">All Exercises</option>
+                <option value="Flexion">Flexion</option>
+                <option value="Extension">Extension</option>
+            </select>
             <input type="date" id="date-filter" class="form-control mr-2">
             <button type="submit" class="btn btn-primary">Filter</button>
         </form>
