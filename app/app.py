@@ -189,27 +189,26 @@ def api_get_measurements():
     filtered_measurements = []
     for measurement in all_measurements:
         match = True
-        if joint_filter and measurement['joint'] != joint_filter:
-            match = False
-        if exercise_filter and measurement['exercise'] != exercise_filter:
-            match = False
-        if date_from_filter_str or date_to_filter_str:
-            measurement_date = datetime.fromtimestamp(measurement['unix_timestamp']).date()
+        # if joint_filter and measurement['joint'] != joint_filter:
+        #     match = False
+        # if exercise_filter and measurement['exercise'] != exercise_filter:
+        #     match = False
+        # if date_from_filter_str or date_to_filter_str:
+        #     measurement_date = datetime.fromtimestamp(measurement['unix_timestamp']).date()
             
-            if date_from_filter_str:
-                filter_date_from = datetime.strptime(date_from_filter_str, '%Y-%m-%d').date()
-                if measurement_date < filter_date_from:
-                    match = False
+        #     if date_from_filter_str:
+        #         filter_date_from = datetime.strptime(date_from_filter_str, '%Y-%m-%d').date()
+        #         if measurement_date < filter_date_from:
+        #             match = False
             
-            if date_to_filter_str:
-                filter_date_to = datetime.strptime(date_to_filter_str, '%Y-%m-%d').date()
-                if measurement_date > filter_date_to:
-                    match = False
+        #     if date_to_filter_str:
+        #         filter_date_to = datetime.strptime(date_to_filter_str, '%Y-%m-%d').date()
+        #         if measurement_date > filter_date_to:
+        #             match = False
         
         if match:
             filtered_measurements.append(measurement)
     
-    print(f"Filtered measurements count: {len(filtered_measurements)}")
     # Sort by unix_timestamp (newest first)
     filtered_measurements.sort(key=lambda x: x.get('unix_timestamp', 0), reverse=True)
 
