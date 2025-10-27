@@ -117,8 +117,7 @@
                 const exercise = document.getElementById("exercise-filter").value;
                 const dateFrom = document.getElementById("date-from-filter").value;
                 const dateTo = document.getElementById("date-to-filter").value;
-
-                let url = `/api/measurements?page=${page}&per_page=${perPage}`;
+                const perPage = perPageSelect.value;
                 if (joint) url += `&joint=${joint}`;
                 if (exercise) url += `&exercise=${exercise}`;
                 if (dateFrom) url += `&date_from=${dateFrom}`;
