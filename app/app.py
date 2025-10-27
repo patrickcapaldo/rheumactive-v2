@@ -173,7 +173,8 @@ def api_get_measurements():
     per_page = request.args.get('per_page', 10, type=int)
     joint_filter = request.args.get('joint')
     exercise_filter = request.args.get('exercise')
-    date_filter_str = request.args.get('date')
+    date_from_filter_str = request.args.get('date_from')
+    date_to_filter_str = request.args.get('date_to')
 
     all_measurements = []
     mock_data_dir = os.path.join(app.root_path, 'mock_data')
@@ -192,23 +193,23 @@ def api_get_measurements():
             match = False
         if exercise_filter and measurement['exercise'] != exercise_filter:
             match = False
-        if date_filter_str:
-            # Assuming timestamp in mock data is "HH:MM:SS, DD Mon, YYYY"
-            # We only care about the date part for filtering
-            measurement_date_str = measurement['timestamp'].split(', ')[1] + ', ' + measurement['timestamp'].split(', ')[2]
+        if date_from_filter_str or date_to_filter_str:
+            measurement_date = datetime.fromtimestamp(measurement['unix_timestamp']).date()
             
-            try:
-                measurement_date = datetime.strptime(measurement_date_str, '%d %b, %Y').date()
-                filter_date = datetime.strptime(date_filter_str, '%Y-%m-%d').date()
-                if measurement_date != filter_date:
+            if date_from_filter_str:
+                filter_date_from = datetime.strptime(date_from_filter_str, '%Y-%m-%d').date()
+                if measurement_date < filter_date_from:
                     match = False
-            except ValueError:
-                # Handle cases where date format might be unexpected
-                match = False
+            
+            if date_to_filter_str:
+                filter_date_to = datetime.strptime(date_to_filter_str, '%Y-%m-%d').date()
+                if measurement_date > filter_date_to:
+                    match = False
         
         if match:
             filtered_measurements.append(measurement)
     
+    print(f"Filtered measurements count: {len(filtered_measurements)}")
     # Sort by unix_timestamp (newest first)
     filtered_measurements.sort(key=lambda x: x.get('unix_timestamp', 0), reverse=True)
 

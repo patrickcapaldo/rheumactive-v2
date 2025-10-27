@@ -79,7 +79,8 @@
                 <option value="Flexion">Flexion</option>
                 <option value="Extension">Extension</option>
             </select>
-            <input type="date" id="date-filter" class="form-control mr-2">
+            <input type="date" id="date-from-filter" class="form-control mr-2" title="Date From">
+            <input type="date" id="date-to-filter" class="form-control mr-2" title="Date To">
             <button type="submit" class="btn btn-primary">Filter</button>
         </form>
         <div class="form-inline">
@@ -114,13 +115,14 @@
             async function fetchLogs(page = 1) {
                 const joint = document.getElementById("joint-filter").value;
                 const exercise = document.getElementById("exercise-filter").value;
-                const date = document.getElementById("date-filter").value;
-                const perPage = perPageSelect.value;
+                const dateFrom = document.getElementById("date-from-filter").value;
+                const dateTo = document.getElementById("date-to-filter").value;
 
                 let url = `/api/measurements?page=${page}&per_page=${perPage}`;
                 if (joint) url += `&joint=${joint}`;
                 if (exercise) url += `&exercise=${exercise}`;
-                if (date) url += `&date=${date}`;
+                if (dateFrom) url += `&date_from=${dateFrom}`;
+                if (dateTo) url += `&date_to=${dateTo}`;
 
                 const response = await fetch(url);
                 const data = await response.json();
@@ -143,10 +145,10 @@
                         <div class="card mb-4">
                             <div class="card-body">
                                 <h5 class="card-title">${log.joint} - ${log.exercise}</h5>
-                                <h6 class="card-subtitle mb-2 text-muted">${new Date(log.timestamp).toLocaleString()}</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">${new Date(log.unix_timestamp * 1000).toLocaleString()}</h6>
                                 <p class="card-text">
-                                    <strong>Min Angle:</strong> ${log.min_angle.toFixed(2)}°<br>
-                                    <strong>Max Angle:</strong> ${log.max_angle.toFixed(2)}°
+                                    <strong>Min Angle:</strong> ${log.min_value.toFixed(2)}°<br>
+                                    <strong>Max Angle:</strong> ${log.max_value.toFixed(2)}°
                                 </p>
                                 <a href="/measurement/${log.id}" class="btn btn-primary btn-block">View Details</a>
                             </div>
