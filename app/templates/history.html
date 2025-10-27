@@ -79,8 +79,14 @@
                 <option value="Flexion">Flexion</option>
                 <option value="Extension">Extension</option>
             </select>
-            <input type="date" id="date-from-filter" class="form-control mr-2" title="Start Date">
-            <input type="date" id="date-to-filter" class="form-control mr-2" title="End Date">
+            <div class="form-group mr-2">
+                <label for="date-from-filter">Start Date</label>
+                <input type="date" id="date-from-filter" class="form-control" title="Start Date">
+            </div>
+            <div class="form-group mr-2">
+                <label for="date-to-filter">End Date</label>
+                <input type="date" id="date-to-filter" class="form-control" title="End Date">
+            </div>
             <button type="submit" class="btn btn-primary">Filter</button>
             <button type="button" id="reset-filters-btn" class="btn btn-secondary ml-2">Reset</button>
         </form>
@@ -196,11 +202,26 @@
             // Initial fetch
             fetchLogs();
 
+            const dateFromFilter = document.getElementById("date-from-filter");
+            const dateToFilter = document.getElementById("date-to-filter");
+
+            function validateDates() {
+                if (dateFromFilter.value && dateToFilter.value && dateToFilter.value < dateFromFilter.value) {
+                    dateToFilter.setCustomValidity("End Date cannot be before Start Date.");
+                } else {
+                    dateToFilter.setCustomValidity("");
+                }
+            }
+
+            dateFromFilter.addEventListener("change", validateDates);
+            dateToFilter.addEventListener("change", validateDates);
+
             document.getElementById("reset-filters-btn").addEventListener("click", () => {
                 document.getElementById("joint-filter").value = "";
                 document.getElementById("exercise-filter").value = "";
-                document.getElementById("date-from-filter").value = "";
-                document.getElementById("date-to-filter").value = "";
+                dateFromFilter.value = "";
+                dateToFilter.value = "";
+                validateDates(); // Clear any validation messages
                 perPageSelect.value = "10"; // Reset to default
                 currentPage = 1;
                 fetchLogs(currentPage);
