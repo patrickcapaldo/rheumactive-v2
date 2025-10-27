@@ -1,0 +1,12 @@
+{
+    "timestamp": "10:51:30, 10 Oct, 2025",
+    "unix_timestamp": 1728598290,
+    "joint": "right_hip",
+    "exercise": "Extension",
+    "max_value": 22.0,
+    "min_value": -9.0,
+    "data": [
+        -9.0, -4.0, 1.0, 6.0, 11.0, 16.0, 22.0,
+        20.0, 14.0, 9.0, 4.0, -1.0, -6.0
+    ]
+}
