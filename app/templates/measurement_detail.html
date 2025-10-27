@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Measurement Details - RheumActive{% endblock %}
+
+{% block head %}
+    <style>
+        #angle-chart {
+            background-color: #343a40;
+            border-radius: 5px;
+            padding: 1rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2 class="mb-4 text-primary">Measurement Details</h2>
+    <div id="measurement-details"></div>
+    <canvas id="angle-chart" width="400" height="200"></canvas>
+    <div class="d-flex justify-content-between mt-4">
+        <a href="/history" class="btn btn-secondary">Back to History</a>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const measurementDetails = document.getElementById("measurement-details");
+            const chartCanvas = document.getElementById("angle-chart");
+            const measurementId = window.location.pathname.split("/").pop();
+
+            const response = await fetch(`/api/measurements/${measurementId}`);
+            const data = await response.json();
+
+            function formatJointName(joint) {
+                return joint.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
+            if (response.ok) {
+                measurementDetails.innerHTML = `
+                    <h5>${formatJointName(data.joint)} - ${data.exercise}</h5>
+                    <p>Date: ${new Date(data.unix_timestamp * 1000).toLocaleString()}</p>
+                    <p>Min Angle: ${data.min_value.toFixed(2)}</p>
+                    <p>Max Angle: ${data.max_value.toFixed(2)}</p>
+                `;
+
+                new Chart(chartCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: data.data.map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Angle Fluctuation',
+                            data: data.data,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                measurementDetails.innerHTML = `<p>${data.message}</p>`;
+            }
+        });
+    </script>
+{% endblock %}
+</body>
+</html>

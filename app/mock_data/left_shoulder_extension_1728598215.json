@@ -1,0 +1,13 @@
+{
+    "timestamp": "10:50:15, 10 Oct, 2025",
+    "unix_timestamp": 1728598215,
+    "joint": "left_shoulder",
+    "exercise": "Extension",
+    "max_value": 60.0,
+    "min_value": -30.0,
+    "data": [
+        -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0,
+        55.0, 45.0, 35.0, 25.0, 15.0, 5.0, -5.0, -15.0, -25.0
+    ],
+    "id": "left_shoulder_extension_1728598215"
+}

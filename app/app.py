@@ -3,9 +3,12 @@ import json
 import time
 import socket
 import threading
-import base64 # Added import
+import base64
+import glob
+from datetime import datetime
 
-from flask import Flask, render_template, Response, request
+from flask import Flask, render_template, Response, request, jsonify
+import database as db
 
 # --- Configuration ---
 TCP_IP = '127.0.0.1'
@@ -18,6 +21,10 @@ client_socket_conn = None # To hold the connection to the streamer
 
 # --- Flask App Setup ---
 app = Flask(__name__)
+
+# --- Database Initialisation ---
+# with app.app_context():
+#     db.init_db()
 
 # --- Inter-Process Communication (IPC) ---
 
@@ -79,6 +86,21 @@ def socket_listener():
 def index():
     return render_template('index.html')
 
+@app.route('/measure')
+def measure():
+    """Renders the measure page."""
+    return render_template('measure.html')
+
+@app.route('/history')
+def history():
+    """Renders the history page."""
+    return render_template('history.html')
+
+@app.route('/measurement/<measurement_id>')
+def measurement_detail(measurement_id):
+    """Renders the measurement detail page."""
+    return render_template('measurement_detail.html', measurement_id=measurement_id)
+
 @app.route('/start_video', methods=['POST'])
 def start_video():
     global client_socket_conn
@@ -120,6 +142,102 @@ def video_feed():
 @app.route('/angle_feed')
 def angle_feed():
     return json.dumps({"angle": latest_frame_data["angle"]})
+
+# --- API Routes ---
+
+# @app.route('/api/measurements', methods=['POST'])
+# def api_save_measurement():
+#     """API endpoint to save a new measurement."""
+#     data = request.get_json()
+#     joint = data.get('joint')
+#     exercise = data.get('exercise')
+#     measure_data = data.get('data')
+
+#     if not all([joint, exercise, measure_data]):
+#         return jsonify({'status': 'error', 'message': 'Missing required data'}), 400
+
+#     try:
+#         db.save_measurement(joint, exercise, measure_data)
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/measurements', methods=['POST'])
+def api_save_measurement():
+    return jsonify({'status': 'error', 'message': 'Saving measurements is disabled in mock data mode.'}), 501
+
+@app.route('/api/measurements', methods=['GET'])
+def api_get_measurements():
+    """API endpoint to get measurements with pagination and filtering."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    joint_filter = request.args.get('joint')
+    exercise_filter = request.args.get('exercise')
+    date_from_filter_str = request.args.get('date_from')
+    date_to_filter_str = request.args.get('date_to')
+
+    all_measurements = []
+    mock_data_dir = os.path.join(app.root_path, 'mock_data')
+    for filepath in glob.glob(os.path.join(mock_data_dir, '*.json')):
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            data['id'] = os.path.basename(filepath).replace('.json', '')
+            all_measurements.append(data)
+
+    print(f"Total mock measurements loaded: {len(all_measurements)}")
+
+    # Apply filters
+    filtered_measurements = []
+    for measurement in all_measurements:
+        match = True
+        if joint_filter and measurement['joint'] != joint_filter:
+            match = False
+        if exercise_filter and measurement['exercise'] != exercise_filter:
+            match = False
+        if date_from_filter_str or date_to_filter_str:
+            measurement_date = datetime.fromtimestamp(measurement['unix_timestamp']).date()
+            
+            if date_from_filter_str:
+                filter_date_from = datetime.strptime(date_from_filter_str, '%Y-%m-%d').date()
+                if measurement_date < filter_date_from:
+                    match = False
+            
+            if date_to_filter_str:
+                filter_date_to = datetime.strptime(date_to_filter_str, '%Y-%m-%d').date()
+                if measurement_date > filter_date_to:
+                    match = False
+        
+        if match:
+            filtered_measurements.append(measurement)
+    
+    # Sort by unix_timestamp (newest first)
+    filtered_measurements.sort(key=lambda x: x.get('unix_timestamp', 0), reverse=True)
+
+    # Implement pagination
+    total = len(filtered_measurements)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_measurements = filtered_measurements[start:end]
+
+    return jsonify({
+        'data': paginated_measurements,
+        'total': total,
+        'page': page,
+        'per_page': per_page
+    })
+
+@app.route('/api/measurements/<measurement_id>', methods=['GET'])
+def api_get_measurement(measurement_id):
+    """API endpoint to get a single measurement by its ID."""
+    try:
+        filepath = os.path.join(app.root_path, 'mock_data', f'{measurement_id}.json')
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                measurement = json.load(f)
+                return jsonify(measurement)
+        return jsonify({'status': 'error', 'message': 'Measurement not found'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # --- App Lifecycle ---
 

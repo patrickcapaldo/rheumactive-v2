@@ -1,0 +1,13 @@
+{
+    "timestamp": "10:49:30, 10 Oct, 2025",
+    "unix_timestamp": 1728598170,
+    "joint": "right_hip",
+    "exercise": "Flexion",
+    "max_value": 122.0,
+    "min_value": 10.5,
+    "data": [
+        10.5, 15.5, 25.5, 40.5, 60.5, 80.5, 100.5, 115.5, 122.0,
+        120.0, 107.0, 92.0, 72.0, 52.0, 32.0, 16.0
+    ],
+    "id": "right_hip_flexion_1728598170"
+}

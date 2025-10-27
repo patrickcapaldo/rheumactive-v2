@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}History - RheumActive{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block head %}
+    <style>
+        .card {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border: 1px solid #495057;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .btn-primary {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+        }
+        .btn-primary:hover {
+            background-color: #0aa3c2;
+            border-color: #0aa3c2;
+        }
+        .form-control, .form-control:focus {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #6c757d;
+        }
+        .log-item {
+            border-bottom: 1px solid #495057;
+            padding: 1rem 0;
+        }
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        .pagination .page-link {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #6c757d;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #212529;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+
+    <h2 class="mb-4 text-primary">History</h2>
+
+    <!-- Filtering and Pagination Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <form id="filter-form" class="form-inline">
+            <select id="joint-filter" class="form-select mr-2">
+                <option value="">All Joints</option>
+                <option value="left_elbow">Left Elbow</option>
+                <option value="right_elbow">Right Elbow</option>
+                <option value="left_shoulder">Left Shoulder</option>
+                <option value="right_shoulder">Right Shoulder</option>
+                <option value="left_knee">Left Knee</option>
+                <option value="right_knee">Right Knee</option>
+                <option value="left_hip">Left Hip</option>
+                <option value="right_hip">Right Hip</option>
+            </select>
+            <select id="exercise-filter" class="form-select mr-2">
+                <option value="">All Exercises</option>
+                <option value="Flexion">Flexion</option>
+                <option value="Extension">Extension</option>
+            </select>
+            <div class="form-group mr-2">
+                <label for="date-from-filter">Start Date</label>
+                <input type="date" id="date-from-filter" class="form-control" title="Start Date">
+            </div>
+            <div class="form-group mr-2">
+                <label for="date-to-filter">End Date</label>
+                <input type="date" id="date-to-filter" class="form-control" title="End Date">
+            </div>
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="button" id="reset-filters-btn" class="btn btn-secondary ml-2">Reset</button>
+        </form>
+        <div class="form-inline">
+            <label for="per-page-select" class="mr-2">Logs per page:</label>
+            <select id="per-page-select" class="form-control">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Log List -->
+    <div id="log-list"></div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul id="pagination" class="pagination"></ul>
+    </nav>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const logList = document.getElementById("log-list");
+            const pagination = document.getElementById("pagination");
+            const filterForm = document.getElementById("filter-form");
+            const perPageSelect = document.getElementById("per-page-select");
+
+            let currentPage = 1;
+
+            async function fetchLogs(page = 1) {
+                const joint = document.getElementById("joint-filter").value;
+                const exercise = document.getElementById("exercise-filter").value;
+                const dateFrom = document.getElementById("date-from-filter").value;
+                const dateTo = document.getElementById("date-to-filter").value;
+                                const perPage = perPageSelect.value;
+                
+                                let url = `/api/measurements?page=${page}&per_page=${perPage}`;
+                                if (joint) url += `&joint=${joint}`;
+                                if (exercise) url += `&exercise=${exercise}`;
+                                if (dateFrom) url += `&date_from=${dateFrom}`;
+                                if (dateTo) url += `&date_to=${dateTo}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log("API Response Data:", data);
+
+                renderLogs(data.data);
+                renderPagination(data.total, data.page, data.per_page);
+            }
+
+            function formatJointName(joint) {
+                return joint.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
+            function renderLogs(logs) {
+                logList.innerHTML = "";
+                if (logs.length === 0) {
+                    logList.innerHTML = "<p>No measurements found.</p>";
+                    return;
+                }
+
+                logs.forEach(log => {
+                    const logItem = document.createElement("div");
+                    logItem.className = "log-item";
+                    logItem.innerHTML = `
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">${formatJointName(log.joint)} - ${log.exercise}</h5>
+                                <h6 class="card-subtitle mb-2">${new Date(log.unix_timestamp * 1000).toLocaleString()}</h6>
+                                <p class="card-text">
+                                    <strong>Min Angle:</strong> ${log.min_value.toFixed(2)}°<br>
+                                    <strong>Max Angle:</strong> ${log.max_value.toFixed(2)}°
+                                </p>
+                                <a href="/measurement/${log.id}" class="btn btn-primary btn-block">View Details</a>
+                            </div>
+                        </div>
+                    `;
+                    logList.appendChild(logItem);
+                });
+            }
+
+            function renderPagination(total, page, perPage) {
+                pagination.innerHTML = "";
+                const totalPages = Math.ceil(total / perPage);
+
+                for (let i = 1; i <= totalPages; i++) {
+                    const li = document.createElement("li");
+                    li.className = `page-item ${i === page ? 'active' : ''}`;
+                    const a = document.createElement("a");
+                    a.className = "page-link";
+                    a.href = "#";
+                    a.innerText = i;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        currentPage = i;
+                        fetchLogs(i);
+                    });
+                    li.appendChild(a);
+                    pagination.appendChild(li);
+                }
+            }
+
+            filterForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
+
+            perPageSelect.addEventListener("change", () => {
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
+
+            // Initial fetch
+            fetchLogs();
+
+            const dateFromFilter = document.getElementById("date-from-filter");
+            const dateToFilter = document.getElementById("date-to-filter");
+
+            function validateDates() {
+                if (dateFromFilter.value && dateToFilter.value && dateToFilter.value < dateFromFilter.value) {
+                    dateToFilter.setCustomValidity("End Date cannot be before Start Date.");
+                } else {
+                    dateToFilter.setCustomValidity("");
+                }
+            }
+
+            dateFromFilter.addEventListener("change", validateDates);
+            dateToFilter.addEventListener("change", validateDates);
+
+            document.getElementById("reset-filters-btn").addEventListener("click", () => {
+                document.getElementById("joint-filter").value = "";
+                document.getElementById("exercise-filter").value = "";
+                dateFromFilter.value = "";
+                dateToFilter.value = "";
+                validateDates(); // Clear any validation messages
+                perPageSelect.value = "10"; // Reset to default
+                currentPage = 1;
+                fetchLogs(currentPage);
+            });
+        });
+    </script>
+{% endblock %}
