@@ -20,6 +20,9 @@
         <a href="/history" class="btn btn-secondary">Back to History</a>
     </div>
 {% endblock %}
+
+{% block scripts %}
+    <script>
         document.addEventListener("DOMContentLoaded", async () => {
             const measurementDetails = document.getElementById("measurement-details");
             const chartCanvas = document.getElementById("angle-chart");
@@ -65,5 +68,6 @@
             }
         });
     </script>
+{% endblock %}
 </body>
 </html>
