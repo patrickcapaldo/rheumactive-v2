@@ -1,22 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Measurement History</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+{% extends 'base.html' %}
+
+{% block title %}Measurement History - RheumActive{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block head %}
     <style>
-        body {
-            background-color: #212529;
-            color: #f8f9fa;
-        }
-        .navbar {
-            background-color: #343a40 !important;
-        }
         .card {
             background-color: #343a40;
             color: #f8f9fa;
-            border-color: #495057;
+            border: 1px solid #495057;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
         .btn-primary {
             background-color: #0dcaf0;
@@ -49,38 +53,42 @@
             color: #212529;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="mb-4">Measurement History</h1>
+{% endblock %}
 
-        <!-- Filtering and Pagination Controls -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <form id="filter-form" class="form-inline">
-                <input type="text" id="joint-filter" class="form-control mr-2" placeholder="Filter by Joint">
-                <input type="text" id="exercise-filter" class="form-control mr-2" placeholder="Filter by Exercise">
-                <input type="date" id="date-filter" class="form-control mr-2">
-                <button type="submit" class="btn btn-primary">Filter</button>
-            </form>
-            <div class="form-inline">
-                <label for="per-page-select" class="mr-2">Logs per page:</label>
-                <select id="per-page-select" class="form-control">
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="30">30</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Log List -->
-        <div id="log-list"></div>
-
-        <!-- Pagination -->
-        <nav>
-            <ul id="pagination" class="pagination"></ul>
-        </nav>
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Measurement History</h1>
+        <a href="/" class="btn btn-secondary">Back to Home</a>
     </div>
 
+    <!-- Filtering and Pagination Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <form id="filter-form" class="form-inline">
+            <input type="text" id="joint-filter" class="form-control mr-2" placeholder="Filter by Joint">
+            <input type="text" id="exercise-filter" class="form-control mr-2" placeholder="Filter by Exercise">
+            <input type="date" id="date-filter" class="form-control mr-2">
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+        <div class="form-inline">
+            <label for="per-page-select" class="mr-2">Logs per page:</label>
+            <select id="per-page-select" class="form-control">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Log List -->
+    <div id="log-list"></div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul id="pagination" class="pagination"></ul>
+    </nav>
+{% endblock %}
+
+{% block scripts %}
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const logList = document.getElementById("log-list");
@@ -119,11 +127,17 @@
                     const logItem = document.createElement("div");
                     logItem.className = "log-item";
                     logItem.innerHTML = `
-                        <h5>${log.joint} - ${log.exercise}</h5>
-                        <p>Date: ${new Date(log.timestamp).toLocaleString()}</p>
-                        <p>Min Angle: ${log.min_angle.toFixed(2)}</p>
-                        <p>Max Angle: ${log.max_angle.toFixed(2)}</p>
-                        <a href="/measurement/${log.id}" class="btn btn-sm btn-info">View Details</a>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">${log.joint} - ${log.exercise}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">${new Date(log.timestamp).toLocaleString()}</h6>
+                                <p class="card-text">
+                                    <strong>Min Angle:</strong> ${log.min_angle.toFixed(2)}°<br>
+                                    <strong>Max Angle:</strong> ${log.max_angle.toFixed(2)}°
+                                </p>
+                                <a href="/measurement/${log.id}" class="btn btn-primary btn-block">View Details</a>
+                            </div>
+                        </div>
                     `;
                     logList.appendChild(logItem);
                 });
@@ -165,5 +179,4 @@
             fetchLogs();
         });
     </script>
-</body>
-</html>
+{% endblock %}
