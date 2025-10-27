@@ -2,6 +2,7 @@
 import lancedb
 import uuid
 from datetime import datetime
+import pyarrow as pa
 
 DB_PATH = "data/measurements"
 
@@ -9,15 +10,15 @@ def init_db():
     """Initializes the database and creates the table if it doesn't exist."""
     db = lancedb.connect(DB_PATH)
     if "measurements" not in db.table_names():
-        schema = {
-            "id": str,
-            "joint": str,
-            "exercise": str,
-            "timestamp": str,
-            "min_angle": float,
-            "max_angle": float,
-            "data": list,
-        }
+        schema = pa.schema([
+            pa.field("id", pa.string()),
+            pa.field("joint", pa.string()),
+            pa.field("exercise", pa.string()),
+            pa.field("timestamp", pa.string()),
+            pa.field("min_angle", pa.float64()),
+            pa.field("max_angle", pa.float64()),
+            pa.field("data", pa.list_(pa.float64())),
+        ])
         db.create_table("measurements", schema=schema)
 
 def save_measurement(joint, exercise, data):

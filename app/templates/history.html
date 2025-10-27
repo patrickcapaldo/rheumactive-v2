@@ -6,11 +6,48 @@
     <title>Measurement History</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        body { font-family: sans-serif; }
-        .container { margin-top: 2rem; }
-        .filter-form { margin-bottom: 2rem; }
-        .log-item { border-bottom: 1px solid #eee; padding: 1rem 0; }
-        .log-item:last-child { border-bottom: none; }
+        body {
+            background-color: #212529;
+            color: #f8f9fa;
+        }
+        .navbar {
+            background-color: #343a40 !important;
+        }
+        .card {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border-color: #495057;
+        }
+        .btn-primary {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+        }
+        .btn-primary:hover {
+            background-color: #0aa3c2;
+            border-color: #0aa3c2;
+        }
+        .form-control, .form-control:focus {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #6c757d;
+        }
+        .log-item {
+            border-bottom: 1px solid #495057;
+            padding: 1rem 0;
+        }
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        .pagination .page-link {
+            background-color: #495057;
+            color: #f8f9fa;
+            border-color: #6c757d;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #212529;
+        }
     </style>
 </head>
 <body>
